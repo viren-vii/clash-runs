@@ -12,6 +12,7 @@ module.exports = (config) => {
     const xcodeProject = config.modResults;
     const teamId = config.ios?.appleTeamId;
 
+    // 1. Update build configuration settings for the main app target
     const buildConfigs = xcodeProject.pbxXCBuildConfigurationSection();
 
     for (const [, buildConfig] of Object.entries(buildConfigs)) {
@@ -21,8 +22,25 @@ module.exports = (config) => {
       if (!buildConfig.buildSettings.PRODUCT_BUNDLE_IDENTIFIER) continue;
 
       buildConfig.buildSettings.CODE_SIGN_STYLE = 'Automatic';
+      buildConfig.buildSettings.CODE_SIGN_IDENTITY = '"Apple Development"';
       if (teamId) {
         buildConfig.buildSettings.DEVELOPMENT_TEAM = teamId;
+      }
+      // Clear any manual provisioning profile settings that conflict with automatic signing
+      delete buildConfig.buildSettings.PROVISIONING_PROFILE_SPECIFIER;
+      delete buildConfig.buildSettings.PROVISIONING_PROFILE;
+    }
+
+    // 2. Update project-level TargetAttributes so Xcode recognises automatic provisioning
+    if (teamId) {
+      const projectSection = xcodeProject.pbxProjectSection();
+      for (const [, project] of Object.entries(projectSection)) {
+        if (typeof project !== 'object' || !project.attributes?.TargetAttributes) continue;
+
+        for (const [, attrs] of Object.entries(project.attributes.TargetAttributes)) {
+          attrs.DevelopmentTeam = teamId;
+          attrs.ProvisioningStyle = 'Automatic';
+        }
       }
     }
 

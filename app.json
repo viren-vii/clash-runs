@@ -60,6 +60,7 @@
     },
     "plugins": [
       "./plugins/withAutoSigning",
+      "./plugins/withMinDeploymentTarget",
       "expo-router",
       [
         "expo-splash-screen",
