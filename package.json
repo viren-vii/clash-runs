@@ -8,7 +8,38 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "setupFiles": ["./jest.setup.ts"],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-maps|@kingstinct/react-native-healthkit|react-native-health-connect|react-native-worklets|uuid))"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/"
+    ],
+    "coverageProvider": "babel",
+    "collectCoverageFrom": [
+      "lib/**/*.{ts,tsx}",
+      "components/**/*.{ts,tsx}",
+      "!lib/health/healthkit-adapter.ios.ts",
+      "!lib/health/health-connect-adapter.android.ts",
+      "!lib/tracking/task-definitions.ts",
+      "!**/*.d.ts"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 80,
+        "functions": 80
+      }
+    }
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -51,10 +82,14 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
     "@types/uuid": "^10.0.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~54.0.17",
     "typescript": "~5.9.2"
   },
   "private": true
