@@ -5,8 +5,8 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const tintColorLight = '#4CAF50';
+const tintColorDark = '#66BB6A';
 
 export const Colors = {
   light: {
@@ -16,6 +16,9 @@ export const Colors = {
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
+    card: '#F0F0F0',
+    border: '#DCDCDC',
+    subtle: '#9E9E9E',
   },
   dark: {
     text: '#ECEDEE',
@@ -24,7 +27,24 @@ export const Colors = {
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
+    card: '#1E2022',
+    border: '#2C2F33',
+    subtle: '#687076',
   },
+};
+
+export const ActivityColors = {
+  running: '#4CAF50',
+  walking: '#2196F3',
+  cycling: '#FF9800',
+  stationary: '#9E9E9E',
+  unknown: '#4CAF50',
+};
+
+export const StatusColors = {
+  active: '#F44336',
+  paused: '#FFC107',
+  completed: '#4CAF50',
 };
 
 export const Fonts = Platform.select({
