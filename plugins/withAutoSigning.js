@@ -1,8 +1,14 @@
 const { withXcodeProject, withEntitlementsPlist } = require('@expo/config-plugins');
 
 /**
- * Sets CODE_SIGN_STYLE = Automatic and DEVELOPMENT_TEAM on the main app target
- * for all build configurations, so this survives expo prebuild.
+ * Sets CODE_SIGN_STYLE = Automatic on the main app target so this
+ * survives expo prebuild.
+ *
+ * NOTE: DEVELOPMENT_TEAM is intentionally NOT set here. Expo's own
+ * code-signing flow detects the team from the keychain at build time
+ * and — critically — passes -allowProvisioningUpdates and
+ * -allowProvisioningDeviceRegistration to xcodebuild, which is needed
+ * for automatic device provisioning from the CLI.
  *
  * Also removes the aps-environment entitlement so the app can build with a
  * free personal Apple Developer account (which doesn't support Push Notifications).
@@ -10,7 +16,6 @@ const { withXcodeProject, withEntitlementsPlist } = require('@expo/config-plugin
 module.exports = (config) => {
   config = withXcodeProject(config, (config) => {
     const xcodeProject = config.modResults;
-    const teamId = config.ios?.appleTeamId;
 
     const buildConfigs = xcodeProject.pbxXCBuildConfigurationSection();
 
@@ -21,9 +26,6 @@ module.exports = (config) => {
       if (!buildConfig.buildSettings.PRODUCT_BUNDLE_IDENTIFIER) continue;
 
       buildConfig.buildSettings.CODE_SIGN_STYLE = 'Automatic';
-      if (teamId) {
-        buildConfig.buildSettings.DEVELOPMENT_TEAM = teamId;
-      }
     }
 
     return config;
