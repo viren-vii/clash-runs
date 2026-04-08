@@ -43,5 +43,5 @@ app-example
 /ios
 /android
 
-# Claude Code worktrees (internal, not project code)
-.claude/worktrees/
+# Claude Code internal files
+.claude/
