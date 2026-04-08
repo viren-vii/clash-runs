@@ -1,7 +1,8 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Pressable, Text, Platform } from 'react-native';
 import 'react-native-reanimated';
 
 // Import task definitions at module scope (required for TaskManager)
@@ -15,6 +16,26 @@ import { getDatabase } from '@/lib/database/database';
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+function SessionBackButton() {
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const tint = colorScheme === 'dark' ? '#66BB6A' : '#4CAF50';
+
+  return (
+    <Pressable
+      onPress={() => router.back()}
+      hitSlop={8}
+      style={{ marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
+    >
+      <Text style={{ color: tint, fontSize: 17 }}>
+        {Platform.OS === 'ios' ? '‹ Back' : '←'}
+      </Text>
+    </Pressable>
+  );
+}
 
 function InnerLayout() {
   const colorScheme = useColorScheme();
@@ -35,7 +56,10 @@ function InnerLayout() {
           />
           <Stack.Screen
             name="session/[id]"
-            options={{ title: 'Session Details', headerBackTitle: 'Back' }}
+            options={{
+              title: 'Session Details',
+              headerLeft: () => <SessionBackButton />,
+            }}
           />
           <Stack.Screen
             name="recovery"
