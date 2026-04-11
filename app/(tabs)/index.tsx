@@ -18,35 +18,35 @@ import { StatsDisplay } from '@/components/tracking/stats-display';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useSettings } from '@/lib/settings/settings-context';
 import {
+  calculatePace,
   formatDistance,
   formatElapsedTime,
   formatPace,
   getPaceUnit,
 } from '@/lib/tracking/distance-calculator';
 import { StatusColors, ActivityColors } from '@/constants/theme';
+import { ACTIVITY_EMOJI, ACTIVITY_LABELS } from '@/constants/activity';
 import type { Session, RoutePoint } from '@/lib/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const ACTIVITY_EMOJI: Record<string, string> = {
-  run: '🏃',
-  walk: '🚶',
-  cycle: '🚴',
-  mixed: '🏋️',
-};
+function getBarColor(hasData: boolean, isSelected: boolean, isToday: boolean, borderColor: string): string {
+  if (hasData) {
+    return isSelected || isToday ? ActivityColors.running : `${ActivityColors.running}88`;
+  }
+  return isSelected ? `${ActivityColors.running}55` : borderColor;
+}
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  run: 'Run',
-  walk: 'Walk',
-  cycle: 'Ride',
-  mixed: 'Workout',
-};
+/** Convert JS getDay() (0=Sun) to Mon=0 index. */
+function getDayIndex(date: Date): number {
+  const day = date.getDay();
+  return day === 0 ? 6 : day - 1;
+}
 
 /** Get the Monday 00:00 of the week containing `date`. */
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay(); // 0=Sun
-  const diff = day === 0 ? 6 : day - 1; // shift so Mon=0
+  const diff = getDayIndex(d);
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - diff);
   return d;
@@ -134,35 +134,18 @@ export default function HomeScreen() {
     [allSessions, lastWeekStart, weekStart],
   );
 
-  // Weekly bar chart data (Mon–Sun) – distances, times, counts per day
-  const weeklyDistances = useMemo(() => {
-    const bars = new Array(7).fill(0);
+  // Weekly bar chart data (Mon–Sun) – single pass for distances, times, counts
+  const { weeklyDistances, weeklyTimes, weeklyCounts } = useMemo(() => {
+    const distances = new Array(7).fill(0);
+    const times = new Array(7).fill(0);
+    const counts = new Array(7).fill(0);
     for (const s of thisWeekSessions) {
-      const d = new Date(s.startTime);
-      const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-      bars[dayIdx] += s.totalDistance;
+      const dayIdx = getDayIndex(new Date(s.startTime));
+      distances[dayIdx] += s.totalDistance;
+      times[dayIdx] += s.elapsedTime;
+      counts[dayIdx] += 1;
     }
-    return bars as number[];
-  }, [thisWeekSessions]);
-
-  const weeklyTimes = useMemo(() => {
-    const bars = new Array(7).fill(0);
-    for (const s of thisWeekSessions) {
-      const d = new Date(s.startTime);
-      const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-      bars[dayIdx] += s.elapsedTime;
-    }
-    return bars as number[];
-  }, [thisWeekSessions]);
-
-  const weeklyCounts = useMemo(() => {
-    const bars = new Array(7).fill(0);
-    for (const s of thisWeekSessions) {
-      const d = new Date(s.startTime);
-      const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-      bars[dayIdx] += 1;
-    }
-    return bars as number[];
+    return { weeklyDistances: distances as number[], weeklyTimes: times as number[], weeklyCounts: counts as number[] };
   }, [thisWeekSessions]);
 
   const maxBar = Math.max(...weeklyDistances, 1); // avoid div-by-zero
@@ -181,7 +164,6 @@ export default function HomeScreen() {
   );
 
   // Summary values – either for whole week or selected day
-  const FULL_DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const summaryActivities = selectedDay !== null ? weeklyCounts[selectedDay] : thisWeekSessions.length;
   const summaryDistance = selectedDay !== null ? weeklyDistances[selectedDay] : weekTotalDistance;
   const summaryTime = selectedDay !== null ? weeklyTimes[selectedDay] : weekTotalTime;
@@ -189,13 +171,12 @@ export default function HomeScreen() {
   // (comparison text removed to avoid layout shift on bar tap)
 
   const lastSession = allSessions.length > 0 ? allSessions[0] : null;
-  const lastPace =
-    lastSession && lastSession.totalDistance > 0 && lastSession.elapsedTime > 0
-      ? lastSession.elapsedTime / 60000 / (lastSession.totalDistance / 1000)
-      : null;
+  const lastPace = lastSession
+    ? calculatePace(lastSession.totalDistance, lastSession.elapsedTime)
+    : null;
 
   const isActive = state.status === 'active' || state.status === 'paused';
-  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const todayIdx = getDayIndex(new Date());
 
   return (
     <View style={[styles.outerContainer, { backgroundColor: bgColor }]}>
@@ -293,15 +274,7 @@ export default function HomeScreen() {
                         styles.bar,
                         {
                           height: `${heightPct}%`,
-                          backgroundColor: hasData
-                            ? isSelected
-                              ? ActivityColors.running
-                              : isToday
-                                ? ActivityColors.running
-                                : `${ActivityColors.running}88`
-                            : isSelected
-                              ? `${ActivityColors.running}55`
-                              : borderColor,
+                          backgroundColor: getBarColor(hasData, isSelected, isToday, borderColor),
                           borderRadius: 4,
                         },
                       ]}

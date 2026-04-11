@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, Pressable, useColorScheme } from 'react-native'
 import { useRouter } from 'expo-router';
 import { RouteMapStatic } from '@/components/tracking/route-map-static';
 import {
+  calculatePace,
   formatElapsedTime,
   formatDistance,
   formatPace,
@@ -10,26 +11,13 @@ import {
 } from '@/lib/tracking/distance-calculator';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useSettings } from '@/lib/settings/settings-context';
+import { ACTIVITY_EMOJI, ACTIVITY_LABELS } from '@/constants/activity';
 import type { Session, RoutePoint } from '@/lib/types';
 
 interface SessionCardProps {
   session: Session;
   routePoints: RoutePoint[];
 }
-
-const ACTIVITY_EMOJI: Record<string, string> = {
-  run: '🏃',
-  walk: '🚶',
-  cycle: '🚴',
-  mixed: '🏋️',
-};
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  run: 'Run',
-  walk: 'Walk',
-  cycle: 'Ride',
-  mixed: 'Workout',
-};
 
 export function SessionCard({ session, routePoints }: SessionCardProps) {
   const router = useRouter();
@@ -48,10 +36,7 @@ export function SessionCard({ session, routePoints }: SessionCardProps) {
     day: 'numeric',
   });
 
-  const pace =
-    session.totalDistance > 0 && session.elapsedTime > 0
-      ? session.elapsedTime / 60000 / (session.totalDistance / 1000)
-      : null;
+  const pace = calculatePace(session.totalDistance, session.elapsedTime);
 
   return (
     <Pressable

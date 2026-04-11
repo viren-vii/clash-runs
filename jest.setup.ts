@@ -94,7 +94,7 @@ jest.mock('expo-sensors', () => ({
   },
 }));
 
-// expo-notifications
+// expo-notifications (removed from dependencies — virtual mock for any transitive references)
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
@@ -105,7 +105,7 @@ jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest
     .fn()
     .mockResolvedValue({ status: 'granted', granted: true }),
-}));
+}), { virtual: true });
 
 // expo-background-task
 jest.mock('expo-background-task', () => ({

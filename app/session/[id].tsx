@@ -26,21 +26,8 @@ import {
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useSettings } from '@/lib/settings/settings-context';
 import { ActivityColors, StatusColors } from '@/constants/theme';
+import { ACTIVITY_EMOJI, ACTIVITY_LABELS } from '@/constants/activity';
 import type { Session, RoutePoint, ActivitySegment } from '@/lib/types';
-
-const ACTIVITY_EMOJI: Record<string, string> = {
-  run: '🏃',
-  walk: '🚶',
-  cycle: '🚴',
-  mixed: '🏋️',
-};
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  run: 'Run',
-  walk: 'Walk',
-  cycle: 'Ride',
-  mixed: 'Workout',
-};
 
 export default function SessionDetailScreen() {
   const router = useRouter();

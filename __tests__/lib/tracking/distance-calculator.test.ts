@@ -8,7 +8,6 @@ import {
   formatDistance,
   formatElapsedTime,
   getPaceUnit,
-  getDistanceUnit,
 } from '@/lib/tracking/distance-calculator';
 import type { RoutePoint } from '@/lib/types';
 
@@ -250,11 +249,3 @@ describe('getPaceUnit', () => {
   });
 });
 
-describe('getDistanceUnit', () => {
-  it('returns km for metric', () => {
-    expect(getDistanceUnit('metric')).toBe('km');
-  });
-  it('returns mi for imperial', () => {
-    expect(getDistanceUnit('imperial')).toBe('mi');
-  });
-});

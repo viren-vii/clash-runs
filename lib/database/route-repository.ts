@@ -36,33 +36,6 @@ export async function insertRoutePoint(
   );
 }
 
-export async function insertRoutePointsBatch(
-  sessionId: string,
-  points: Omit<RoutePoint, 'id' | 'sessionId'>[],
-): Promise<void> {
-  if (points.length === 0) return;
-  const db = await getDatabase();
-
-  await db.withTransactionAsync(async () => {
-    for (const point of points) {
-      await db.runAsync(
-        `INSERT INTO route_points (session_id, latitude, longitude, altitude, accuracy, speed, timestamp, segment_index)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          sessionId,
-          point.latitude,
-          point.longitude,
-          point.altitude,
-          point.accuracy,
-          point.speed,
-          point.timestamp,
-          point.segmentIndex,
-        ],
-      );
-    }
-  });
-}
-
 export async function getRoutePoints(sessionId: string): Promise<RoutePoint[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<Record<string, unknown>>(
@@ -72,25 +45,3 @@ export async function getRoutePoints(sessionId: string): Promise<RoutePoint[]> {
   return rows.map(rowToRoutePoint);
 }
 
-export async function getRoutePointsBySegment(
-  sessionId: string,
-  segmentIndex: number,
-): Promise<RoutePoint[]> {
-  const db = await getDatabase();
-  const rows = await db.getAllAsync<Record<string, unknown>>(
-    'SELECT * FROM route_points WHERE session_id = ? AND segment_index = ? ORDER BY timestamp ASC',
-    [sessionId, segmentIndex],
-  );
-  return rows.map(rowToRoutePoint);
-}
-
-export async function getLastRoutePoint(
-  sessionId: string,
-): Promise<RoutePoint | null> {
-  const db = await getDatabase();
-  const row = await db.getFirstAsync<Record<string, unknown>>(
-    'SELECT * FROM route_points WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1',
-    [sessionId],
-  );
-  return row ? rowToRoutePoint(row) : null;
-}
