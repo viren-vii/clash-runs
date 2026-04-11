@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
-export interface PermissionsStatus {
+interface PermissionsStatus {
   foregroundLocation: boolean;
   backgroundLocation: boolean;
 }
@@ -20,7 +20,7 @@ export async function requestBackgroundLocation(): Promise<boolean> {
   return status === 'granted';
 }
 
-export async function checkAllPermissions(): Promise<PermissionsStatus> {
+async function checkAllPermissions(): Promise<PermissionsStatus> {
   const foreground = await Location.getForegroundPermissionsAsync();
   const background = await Location.getBackgroundPermissionsAsync();
 

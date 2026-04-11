@@ -156,7 +156,3 @@ export async function stopTracking(): Promise<number> {
   lastMovementTime = 0;
   return finalDistance;
 }
-
-export function updateSegmentIndex(index: number): void {
-  taskState.segmentIndex = index;
-}

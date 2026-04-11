@@ -66,9 +66,3 @@ async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
   }
 }
 
-export async function closeDatabase(): Promise<void> {
-  if (db) {
-    await db.closeAsync();
-    db = null;
-  }
-}

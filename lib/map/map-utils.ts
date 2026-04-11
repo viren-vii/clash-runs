@@ -1,22 +1,8 @@
-import type { RoutePoint, SegmentActivityType } from '../types';
+import type { RoutePoint } from '../types';
 
 export interface LatLng {
   latitude: number;
   longitude: number;
-}
-
-export interface Region {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
-
-export interface SegmentedPolyline {
-  coordinates: LatLng[];
-  color: string;
-  segmentIndex: number;
-  activityType: SegmentActivityType;
 }
 
 export const ACTIVITY_COLORS: Record<SegmentActivityType, string> = {
@@ -79,55 +65,4 @@ export function coordinatesToPolyline(routePoints: RoutePoint[]): LatLng[] {
     latitude: p.latitude,
     longitude: p.longitude,
   }));
-}
-
-/** Split route into colored polyline segments by segment index. */
-export function segmentPolylines(
-  routePoints: RoutePoint[],
-  activityTypeBySegment?: Map<number, SegmentActivityType>,
-): SegmentedPolyline[] {
-  if (routePoints.length === 0) return [];
-
-  const segments: SegmentedPolyline[] = [];
-  let currentSegmentIndex = routePoints[0].segmentIndex;
-  let currentCoords: LatLng[] = [];
-
-  for (const point of routePoints) {
-    if (point.segmentIndex !== currentSegmentIndex) {
-      // Close previous segment
-      const actType =
-        activityTypeBySegment?.get(currentSegmentIndex) ?? 'unknown';
-      segments.push({
-        coordinates: currentCoords,
-        color: ACTIVITY_COLORS[actType],
-        segmentIndex: currentSegmentIndex,
-        activityType: actType,
-      });
-
-      // Start new segment — include last point of previous for continuity
-      currentCoords = currentCoords.length > 0
-        ? [currentCoords[currentCoords.length - 1]]
-        : [];
-      currentSegmentIndex = point.segmentIndex;
-    }
-
-    currentCoords.push({
-      latitude: point.latitude,
-      longitude: point.longitude,
-    });
-  }
-
-  // Close last segment
-  if (currentCoords.length > 0) {
-    const actType =
-      activityTypeBySegment?.get(currentSegmentIndex) ?? 'unknown';
-    segments.push({
-      coordinates: currentCoords,
-      color: ACTIVITY_COLORS[actType],
-      segmentIndex: currentSegmentIndex,
-      activityType: actType,
-    });
-  }
-
-  return segments;
 }

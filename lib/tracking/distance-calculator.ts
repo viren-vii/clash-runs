@@ -124,11 +124,6 @@ export function formatDistance(
   return `${(meters / 1000).toFixed(2)} km`;
 }
 
-/** Get the distance unit label. */
-export function getDistanceUnit(units: UnitSystem = 'metric'): string {
-  return units === 'imperial' ? 'mi' : 'km';
-}
-
 /** Format elapsed time in ms to HH:MM:SS. */
 export function formatElapsedTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
