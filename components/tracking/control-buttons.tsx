@@ -1,7 +1,12 @@
 import React from 'react';
-import { StyleSheet, View, Pressable, Text } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { StatusColors } from '@/constants/theme';
+
+import { Colors, Radii, Spacing } from '@/constants/theme';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { ThemedText } from '@/components/themed-text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface ControlButtonsProps {
   status: 'idle' | 'active' | 'paused';
@@ -18,58 +23,72 @@ export function ControlButtons({
   onResume,
   onStop,
 }: ControlButtonsProps) {
-  const handlePress = (action: (() => void) | undefined) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    action?.();
+  const outline = useThemeColor({}, 'outline');
+  const scheme = useColorScheme() ?? 'dark';
+  const palette = Colors[scheme];
+
+  const handle = (fn?: () => void) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)?.catch(() => {});
+    fn?.();
   };
 
   if (status === 'idle') {
     return (
       <View style={styles.container}>
-        <Pressable
-          style={[styles.mainButton, { backgroundColor: StatusColors.completed }]}
-          onPress={() => handlePress(onStart)}
-          accessibilityRole="button"
+        <PrimaryButton
+          label="START"
+          onPress={() => handle(onStart)}
+          size="lg"
           accessibilityLabel="Start activity"
-        >
-          <Text style={styles.mainButtonText}>START</Text>
-        </Pressable>
+        />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Stop button */}
+    <View style={styles.rowContainer}>
       <Pressable
-        style={[styles.secondaryButton, { backgroundColor: StatusColors.active }]}
-        onPress={() => handlePress(onStop)}
-        onLongPress={() => handlePress(onStop)}
+        onPress={() => handle(onStop)}
+        onLongPress={() => handle(onStop)}
+        style={({ pressed }) => [
+          styles.stopButton,
+          { backgroundColor: palette.error },
+          pressed && styles.pressed,
+        ]}
         accessibilityRole="button"
         accessibilityLabel="Stop activity"
       >
-        <Text style={styles.secondaryButtonText}>STOP</Text>
+        <ThemedText
+          variant="labelLg"
+          style={[styles.stopLabel, { color: palette.onError }]}
+        >
+          STOP
+        </ThemedText>
       </Pressable>
 
-      {/* Pause/Resume button */}
       {status === 'active' ? (
         <Pressable
-          style={[styles.mainButton, { backgroundColor: StatusColors.paused }]}
-          onPress={() => handlePress(onPause)}
+          onPress={() => handle(onPause)}
+          style={({ pressed }) => [
+            styles.pauseButton,
+            { borderColor: `${outline}55` },
+            pressed && styles.pressed,
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Pause activity"
         >
-          <Text style={[styles.mainButtonText, { color: '#1A1A1A' }]}>PAUSE</Text>
+          <ThemedText variant="labelLg" color="onSurface" style={styles.pauseLabel}>
+            PAUSE
+          </ThemedText>
         </Pressable>
       ) : (
-        <Pressable
-          style={[styles.mainButton, { backgroundColor: StatusColors.completed }]}
-          onPress={() => handlePress(onResume)}
-          accessibilityRole="button"
+        <PrimaryButton
+          label="RESUME"
+          onPress={() => handle(onResume)}
+          size="lg"
+          style={styles.resumeFlex}
           accessibilityLabel="Resume activity"
-        >
-          <Text style={styles.mainButtonText}>RESUME</Text>
-        </Pressable>
+        />
       )}
     </View>
   );
@@ -77,46 +96,40 @@ export function ControlButtons({
 
 const styles = StyleSheet.create({
   container: {
+    paddingVertical: Spacing.sm,
+  },
+  rowContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 20,
-    paddingVertical: 16,
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  mainButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  mainButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  secondaryButton: {
-    width: 60,
+  stopButton: {
+    width: 68,
     height: 60,
-    borderRadius: 30,
+    borderRadius: Radii.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
   },
-  secondaryButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
+  stopLabel: {
     letterSpacing: 1,
+  },
+  pauseButton: {
+    flex: 1,
+    height: 60,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pauseLabel: {
+    letterSpacing: 1,
+  },
+  resumeFlex: {
+    flex: 1,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
 });

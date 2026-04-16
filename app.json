@@ -59,7 +59,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "./plugins/withAutoSigning",
       "expo-router",
       [
         "expo-splash-screen",

@@ -2,20 +2,28 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   StyleSheet,
   View,
-  Text,
   Pressable,
   ScrollView,
   Animated,
-  useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useTracking } from '@/lib/tracking/tracking-context';
 import { getAllSessions } from '@/lib/database/sessions-repository';
 import { getRoutePoints } from '@/lib/database/route-repository';
 import { RouteMapStatic } from '@/components/tracking/route-map-static';
 import { StatsDisplay } from '@/components/tracking/stats-display';
+import { ThemedText } from '@/components/themed-text';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { StatBlock } from '@/components/ui/stat-block';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { ActivityChip } from '@/components/ui/activity-chip';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Icon } from '@/components/ui/icon';
+import { AmbientBackdrop } from '@/components/ui/ambient-backdrop';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSettings } from '@/lib/settings/settings-context';
 import {
   calculatePace,
@@ -24,17 +32,29 @@ import {
   formatPace,
   getPaceUnit,
 } from '@/lib/tracking/distance-calculator';
-import { StatusColors, ActivityColors } from '@/constants/theme';
-import { ACTIVITY_EMOJI, ACTIVITY_LABELS } from '@/constants/activity';
+import {
+  getActivityColors,
+  PageInsets,
+  Radii,
+  Spacing,
+  StatusColors,
+} from '@/constants/theme';
+import { ACTIVITY_LABELS } from '@/constants/activity';
 import type { Session, RoutePoint } from '@/lib/types';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-function getBarColor(hasData: boolean, isSelected: boolean, isToday: boolean, borderColor: string): string {
+function getBarColor(
+  hasData: boolean,
+  isSelected: boolean,
+  isToday: boolean,
+  inactiveColor: string,
+  accent: string,
+): string {
   if (hasData) {
-    return isSelected || isToday ? ActivityColors.running : `${ActivityColors.running}88`;
+    return isSelected || isToday ? accent : `${accent}88`;
   }
-  return isSelected ? `${ActivityColors.running}55` : borderColor;
+  return isSelected ? `${accent}55` : inactiveColor;
 }
 
 /** Convert JS getDay() (0=Sun) to Mon=0 index. */
@@ -55,22 +75,20 @@ function getWeekStart(date: Date): Date {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
   const { state } = useTracking();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
-  const cardColor = useThemeColor({}, 'card');
-  const borderColor = useThemeColor({}, 'border');
+  const bgColor = useThemeColor({}, 'surface');
+  const chartInactive = useThemeColor({}, 'surfaceContainerHighest');
+  const scheme = useColorScheme() ?? 'dark';
+  const activityColors = getActivityColors(scheme);
+  const chartAccent = activityColors.running;
   const { unitSystem } = useSettings();
   const paceUnit = getPaceUnit(unitSystem);
 
   const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [lastRoutePoints, setLastRoutePoints] = useState<RoutePoint[]>([]);
-  // Selected day index for interactive chart (null = week overview)
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  // Pulse animation for start button
+  // Pulse animation for start button — the "Electric Lime" as light source
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -109,32 +127,12 @@ export default function HomeScreen() {
     loadData();
   }, [loadData, state.status]);
 
-  // ── Derived data ──
-
   const weekStart = useMemo(() => getWeekStart(new Date()), []);
-
   const thisWeekSessions = useMemo(
     () => allSessions.filter((s) => s.startTime >= weekStart.getTime()),
     [allSessions, weekStart],
   );
 
-  const lastWeekStart = useMemo(() => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() - 7);
-    return d;
-  }, [weekStart]);
-
-  const lastWeekSessions = useMemo(
-    () =>
-      allSessions.filter(
-        (s) =>
-          s.startTime >= lastWeekStart.getTime() &&
-          s.startTime < weekStart.getTime(),
-      ),
-    [allSessions, lastWeekStart, weekStart],
-  );
-
-  // Weekly bar chart data (Mon–Sun) – single pass for distances, times, counts
   const { weeklyDistances, weeklyTimes, weeklyCounts } = useMemo(() => {
     const distances = new Array(7).fill(0);
     const times = new Array(7).fill(0);
@@ -145,10 +143,14 @@ export default function HomeScreen() {
       times[dayIdx] += s.elapsedTime;
       counts[dayIdx] += 1;
     }
-    return { weeklyDistances: distances as number[], weeklyTimes: times as number[], weeklyCounts: counts as number[] };
+    return {
+      weeklyDistances: distances as number[],
+      weeklyTimes: times as number[],
+      weeklyCounts: counts as number[],
+    };
   }, [thisWeekSessions]);
 
-  const maxBar = Math.max(...weeklyDistances, 1); // avoid div-by-zero
+  const maxBar = Math.max(...weeklyDistances, 1);
 
   const weekTotalDistance = thisWeekSessions.reduce(
     (sum, s) => sum + s.totalDistance,
@@ -158,17 +160,13 @@ export default function HomeScreen() {
     (sum, s) => sum + s.elapsedTime,
     0,
   );
-  const lastWeekTotalDistance = lastWeekSessions.reduce(
-    (sum, s) => sum + s.totalDistance,
-    0,
-  );
 
-  // Summary values – either for whole week or selected day
-  const summaryActivities = selectedDay !== null ? weeklyCounts[selectedDay] : thisWeekSessions.length;
-  const summaryDistance = selectedDay !== null ? weeklyDistances[selectedDay] : weekTotalDistance;
-  const summaryTime = selectedDay !== null ? weeklyTimes[selectedDay] : weekTotalTime;
-
-  // (comparison text removed to avoid layout shift on bar tap)
+  const summaryActivities =
+    selectedDay !== null ? weeklyCounts[selectedDay] : thisWeekSessions.length;
+  const summaryDistance =
+    selectedDay !== null ? weeklyDistances[selectedDay] : weekTotalDistance;
+  const summaryTime =
+    selectedDay !== null ? weeklyTimes[selectedDay] : weekTotalTime;
 
   const lastSession = allSessions.length > 0 ? allSessions[0] : null;
   const lastPace = lastSession
@@ -180,57 +178,73 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.outerContainer, { backgroundColor: bgColor }]}>
+      {/* Ambient light source — sits above the flat bg, below the cards.
+          Shifts to a more intense breath when a session is live. */}
+      <AmbientBackdrop variant={isActive ? 'active' : 'idle'} />
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 16 },
+          { paddingTop: insets.top + Spacing.lg },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: textColor }]}>Clash Runs</Text>
+        <ThemedText variant="displaySm" color="onSurface" style={styles.title}>
+          Clash Runs
+        </ThemedText>
 
-        {/* Active session banner */}
+        {/* Active session banner — pulses when live */}
         {isActive && (
           <Pressable
-            style={[
-              styles.activeBanner,
-              {
-                backgroundColor:
-                  state.status === 'active'
-                    ? StatusColors.active
-                    : StatusColors.paused,
-              },
-            ]}
             onPress={() => router.push('/tracking/active')}
             accessibilityRole="button"
             accessibilityLabel={`${state.status === 'active' ? 'Tracking in progress' : 'Paused'}. Tap to return`}
           >
-            <Text style={styles.bannerTitle}>
-              {state.status === 'active' ? 'Tracking in progress' : 'Paused'}
-            </Text>
-            <StatsDisplay
-              elapsedTime={state.elapsedTime}
-              totalDistance={state.totalDistance}
-              currentPace={state.currentPace}
-              compact
-              invertColors
-            />
-            <Text style={styles.bannerHint}>Tap to return</Text>
+            <SurfaceCard
+              tier={state.status === 'active' ? 'surfaceContainerLow' : 'surfaceVariant'}
+              pulse={state.status === 'active'}
+              ambient={state.status === 'active'}
+              radius="xl"
+              padding={Spacing.lg}
+            >
+              <View style={styles.bannerRow}>
+                <View
+                  style={[
+                    styles.liveDot,
+                    {
+                      backgroundColor:
+                        state.status === 'active'
+                          ? StatusColors.active
+                          : StatusColors.paused,
+                    },
+                  ]}
+                />
+                <ThemedText variant="titleMd" color="onSurface">
+                  {state.status === 'active'
+                    ? 'Tracking in progress'
+                    : 'Paused'}
+                </ThemedText>
+              </View>
+              <StatsDisplay
+                elapsedTime={state.elapsedTime}
+                totalDistance={state.totalDistance}
+                currentPace={state.currentPace}
+                compact
+              />
+              <ThemedText
+                variant="labelSm"
+                color="onSurfaceVariant"
+                style={styles.bannerHint}
+              >
+                Tap to return
+              </ThemedText>
+            </SurfaceCard>
           </Pressable>
         )}
 
         {/* Weekly bar chart */}
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: cardColor,
-              shadowColor: colorScheme === 'dark' ? '#000' : '#888',
-            },
-          ]}
-        >
-          {/* Header: "This Week" or day name with back arrow */}
+        <SurfaceCard tier="surfaceContainerLow" radius="xl" padding={Spacing.lg}>
           <View style={styles.chartHeader}>
             {selectedDay !== null ? (
               <Pressable
@@ -240,17 +254,18 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Back to week overview"
               >
-                <Text style={[styles.backArrow, { color: ActivityColors.running }]}>
-                  ‹
-                </Text>
-                <Text style={[styles.backText, { color: ActivityColors.running }]}>
+                <Icon name="chevronLeft" size={20} color={chartAccent} />
+                <ThemedText
+                  variant="titleMd"
+                  style={{ color: chartAccent }}
+                >
                   Week
-                </Text>
+                </ThemedText>
               </Pressable>
             ) : (
-              <Text style={[styles.cardTitle, { color: textColor }]}>
+              <ThemedText variant="titleMd" color="onSurface">
                 This Week
-              </Text>
+              </ThemedText>
             )}
           </View>
 
@@ -274,152 +289,154 @@ export default function HomeScreen() {
                         styles.bar,
                         {
                           height: `${heightPct}%`,
-                          backgroundColor: getBarColor(hasData, isSelected, isToday, borderColor),
-                          borderRadius: 4,
+                          backgroundColor: getBarColor(
+                            hasData,
+                            isSelected,
+                            isToday,
+                            chartInactive,
+                            chartAccent,
+                          ),
                         },
                       ]}
                     />
                   </View>
-                  <Text
+                  <ThemedText
+                    variant="labelSm"
+                    color={
+                      isSelected
+                        ? 'primary'
+                        : isToday
+                        ? 'onSurface'
+                        : 'onSurfaceDim'
+                    }
                     style={[
                       styles.dayLabel,
-                      {
-                        color: isSelected
-                          ? ActivityColors.running
-                          : isToday
-                            ? textColor
-                            : subtleColor,
-                        fontWeight: isSelected || isToday ? '700' : '400',
-                      },
+                      isSelected ? { color: chartAccent } : undefined,
                     ]}
                   >
                     {DAY_LABELS[i]}
-                  </Text>
+                  </ThemedText>
                 </Pressable>
               );
             })}
           </View>
 
-          {/* Summary row – switches between week and selected day */}
-          <View style={[styles.weekSummary, { borderTopColor: borderColor }]}>
-            <View style={styles.weekStat}>
-              <Text style={[styles.weekStatValue, { color: textColor }]}>
-                {summaryActivities}
-              </Text>
-              <Text style={[styles.weekStatLabel, { color: subtleColor }]}>
-                {summaryActivities === 1 ? 'Activity' : 'Activities'}
-              </Text>
-            </View>
-            <View style={styles.weekStat}>
-              <Text style={[styles.weekStatValue, { color: textColor }]}>
-                {formatDistance(summaryDistance, unitSystem)}
-              </Text>
-              <Text style={[styles.weekStatLabel, { color: subtleColor }]}>
-                Distance
-              </Text>
-            </View>
-            <View style={styles.weekStat}>
-              <Text style={[styles.weekStatValue, { color: textColor }]}>
-                {formatElapsedTime(summaryTime)}
-              </Text>
-              <Text style={[styles.weekStatLabel, { color: subtleColor }]}>
-                Time
-              </Text>
-            </View>
-          </View>
+          {/* Summary strip — nested higher tier (tonal layering, no border) */}
+          <SurfaceCard
+            tier="surfaceContainer"
+            radius="md"
+            padding={Spacing.md}
+            style={styles.weekSummary}
+          >
+            <StatBlock
+              size="sm"
+              align="left"
+              value={String(summaryActivities)}
+              label={summaryActivities === 1 ? 'Activity' : 'Activities'}
+            />
+            <StatBlock
+              size="sm"
+              align="center"
+              value={formatDistance(summaryDistance, unitSystem)}
+              label="Distance"
+              valueColor="primary"
+            />
+            <StatBlock
+              size="sm"
+              align="right"
+              value={formatElapsedTime(summaryTime)}
+              label="Time"
+            />
+          </SurfaceCard>
+        </SurfaceCard>
 
-        </View>
-
-        {/* Last Activity hero card */}
+        {/* Last Activity */}
         {lastSession ? (
           <Pressable
             onPress={() => router.push(`/session/${lastSession.id}`)}
-            style={[
-              styles.card,
-              {
-                backgroundColor: cardColor,
-                shadowColor: colorScheme === 'dark' ? '#000' : '#888',
-              },
-            ]}
             accessibilityRole="button"
             accessibilityLabel={`Last activity: ${ACTIVITY_LABELS[lastSession.activityType] ?? 'Workout'}`}
           >
-            <View style={styles.lastHeader}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>
-                Last Activity
-              </Text>
-              <Text style={[styles.lastType, { color: subtleColor }]}>
-                {ACTIVITY_EMOJI[lastSession.activityType] ?? '🏋️'}{' '}
-                {ACTIVITY_LABELS[lastSession.activityType] ?? 'Workout'}
-              </Text>
-            </View>
-
-            <View style={styles.lastMapWrapper}>
-              <RouteMapStatic routePoints={lastRoutePoints} height={160} />
-            </View>
-
-            <View style={styles.lastStats}>
-              <View style={styles.lastStat}>
-                <Text style={[styles.lastStatValue, { color: textColor }]}>
-                  {formatDistance(lastSession.totalDistance, unitSystem)}
-                </Text>
-                <Text style={[styles.lastStatLabel, { color: subtleColor }]}>
-                  Distance
-                </Text>
+            <SurfaceCard
+              tier="surfaceContainerLow"
+              radius="xl"
+              padding={Spacing.lg}
+            >
+              <View style={styles.lastHeader}>
+                <ThemedText variant="titleMd" color="onSurface">
+                  Last Activity
+                </ThemedText>
+                <ActivityChip
+                  type={
+                    (lastSession.activityType as
+                      | 'run'
+                      | 'walk'
+                      | 'cycle') ?? 'unknown'
+                  }
+                  label={
+                    ACTIVITY_LABELS[lastSession.activityType] ?? 'Workout'
+                  }
+                  size="sm"
+                />
               </View>
-              <View style={styles.lastStat}>
-                <Text style={[styles.lastStatValue, { color: textColor }]}>
-                  {formatElapsedTime(lastSession.elapsedTime)}
-                </Text>
-                <Text style={[styles.lastStatLabel, { color: subtleColor }]}>
-                  Time
-                </Text>
-              </View>
-              <View style={styles.lastStat}>
-                <Text style={[styles.lastStatValue, { color: textColor }]}>
-                  {formatPace(lastPace, unitSystem)} {paceUnit}
-                </Text>
-                <Text style={[styles.lastStatLabel, { color: subtleColor }]}>
-                  Pace
-                </Text>
-              </View>
-            </View>
 
-            <Text style={[styles.lastDate, { color: subtleColor }]}>
-              {new Date(lastSession.startTime).toLocaleDateString(undefined, {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
-              })}
-            </Text>
+              <View style={styles.lastMapWrapper}>
+                <RouteMapStatic routePoints={lastRoutePoints} height={160} />
+              </View>
+
+              <View style={styles.lastStats}>
+                <StatBlock
+                  size="sm"
+                  align="left"
+                  value={formatDistance(lastSession.totalDistance, unitSystem)}
+                  label="Distance"
+                  valueColor="primary"
+                />
+                <StatBlock
+                  size="sm"
+                  align="center"
+                  value={formatElapsedTime(lastSession.elapsedTime)}
+                  label="Time"
+                />
+                <StatBlock
+                  size="sm"
+                  align="right"
+                  value={`${formatPace(lastPace, unitSystem)} ${paceUnit}`}
+                  label="Pace"
+                />
+              </View>
+
+              <ThemedText
+                variant="labelMd"
+                color="onSurfaceDim"
+                style={styles.lastDate}
+              >
+                {new Date(lastSession.startTime).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </ThemedText>
+            </SurfaceCard>
           </Pressable>
         ) : (
           !isActive && (
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: cardColor,
-                  shadowColor: colorScheme === 'dark' ? '#000' : '#888',
-                },
-              ]}
+            <SurfaceCard
+              tier="surfaceContainerLow"
+              radius="xl"
+              padding={Spacing.lg}
             >
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyEmoji}>🏃</Text>
-                <Text style={[styles.emptyTitle, { color: textColor }]}>
-                  Ready to go?
-                </Text>
-                <Text style={[styles.emptyText, { color: subtleColor }]}>
-                  Start your first activity and your dashboard will come to
-                  life.
-                </Text>
-              </View>
-            </View>
+              <EmptyState
+                icon="run"
+                title="Ready to go?"
+                description="Start your first activity and your dashboard will come to life."
+              />
+            </SurfaceCard>
           )
         )}
       </ScrollView>
 
-      {/* Floating start button with breathing pulse */}
+      {/* Floating start CTA */}
       {!isActive && (
         <Animated.View
           style={[
@@ -430,17 +447,12 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Pressable
-            style={({ pressed }) => [
-              styles.stickyButtonInner,
-              pressed && styles.stickyButtonPressed,
-            ]}
+          <PrimaryButton
+            label="Start Activity"
+            ambient
             onPress={() => router.push('/tracking/pre-start')}
-            accessibilityRole="button"
             accessibilityLabel="Start a new activity"
-          >
-            <Text style={styles.stickyButtonText}>Start Activity</Text>
-          </Pressable>
+          />
         </Animated.View>
       )}
     </View>
@@ -455,48 +467,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 88,
-    gap: 16,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    paddingBottom: 96,
+    gap: Spacing.lg,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
+    letterSpacing: -0.72, // -2% of 36
   },
 
-  // Active banner
-  activeBanner: {
-    borderRadius: 16,
-    padding: 20,
+  bannerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
-  bannerTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
+  liveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: Radii.full,
   },
   bannerHint: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    marginTop: 8,
+    marginTop: Spacing.sm,
+    letterSpacing: 0.8,
   },
 
-  // Card
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-
-  // Chart header – fixed height to prevent CLS on toggle
   chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -506,26 +501,14 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 60,
-  },
-  backArrow: {
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 24,
-    marginRight: 2,
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: '600',
   },
 
-  // Weekly chart
   chartContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: 100,
-    marginTop: 16,
+    marginTop: Spacing.lg,
     gap: 6,
   },
   chartCol: {
@@ -540,122 +523,41 @@ const styles = StyleSheet.create({
   bar: {
     width: '100%',
     minHeight: 4,
+    borderRadius: 4,
   },
   dayLabel: {
-    fontSize: 11,
     marginTop: 6,
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
 
-  // Week summary
   weekSummary: {
+    marginTop: Spacing.lg,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  weekStat: {
-    alignItems: 'center',
-  },
-  weekStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  weekStatLabel: {
-    fontSize: 11,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    justifyContent: 'space-between',
   },
 
-  // Last activity hero
   lastHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  lastType: {
-    fontSize: 14,
+    marginBottom: Spacing.md,
   },
   lastMapWrapper: {
-    borderRadius: 14,
+    borderRadius: Radii.lg,
     overflow: 'hidden',
-    marginHorizontal: -4,
   },
   lastStats: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 16,
-  },
-  lastStat: {
-    alignItems: 'center',
-  },
-  lastStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  lastStatLabel: {
-    fontSize: 11,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    justifyContent: 'space-between',
+    paddingTop: Spacing.lg,
   },
   lastDate: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 12,
+    marginTop: Spacing.md,
   },
 
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  emptyText: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-
-  // Sticky button
   stickyButton: {
     position: 'absolute',
-    left: 20,
-    right: 20,
-  },
-  stickyButtonInner: {
-    backgroundColor: ActivityColors.running,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  stickyButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.97 }],
-  },
-  stickyButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1,
+    left: PageInsets.left,
+    right: PageInsets.right,
   },
 });

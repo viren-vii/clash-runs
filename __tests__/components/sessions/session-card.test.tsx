@@ -37,13 +37,12 @@ describe('SessionCard', () => {
     mockPush.mockClear();
   });
 
-  it('renders activity type with emoji', async () => {
+  it('renders activity type label and Lucide icon', async () => {
     render(
       <SessionCard session={makeSession()} routePoints={[]} />,
       { wrapper: TestWrapper },
     );
     await waitFor(() => {
-      expect(screen.getByText(/🏃/)).toBeTruthy();
       expect(screen.getByText(/Run/)).toBeTruthy();
     });
   });
@@ -54,7 +53,6 @@ describe('SessionCard', () => {
       { wrapper: TestWrapper },
     );
     await waitFor(() => {
-      expect(screen.getByText(/🚶/)).toBeTruthy();
       expect(screen.getByText(/Walk/)).toBeTruthy();
     });
   });
@@ -65,7 +63,6 @@ describe('SessionCard', () => {
       { wrapper: TestWrapper },
     );
     await waitFor(() => {
-      expect(screen.getByText(/🚴/)).toBeTruthy();
       expect(screen.getByText(/Ride/)).toBeTruthy();
     });
   });

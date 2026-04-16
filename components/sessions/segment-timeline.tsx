@@ -1,6 +1,9 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { ActivityColors } from '@/constants/theme';
+import { StyleSheet, View } from 'react-native';
+
+import { getActivityColors, Radii, Spacing } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import type { ActivitySegment } from '@/lib/types';
 
@@ -21,11 +24,9 @@ export function SegmentTimeline({
   segments,
   totalDuration,
 }: SegmentTimelineProps) {
-  const subtleColor = useThemeColor({}, 'icon');
-  const barBg = useThemeColor(
-    { light: '#E0E0E0', dark: '#3A3A3C' },
-    'background',
-  );
+  const barBg = useThemeColor({}, 'surfaceContainerHigh');
+  const scheme = useColorScheme() ?? 'dark';
+  const activityColors = getActivityColors(scheme);
 
   if (segments.length === 0 || totalDuration <= 0) return null;
 
@@ -37,10 +38,11 @@ export function SegmentTimeline({
             (segment.endTime ?? Date.now()) - segment.startTime;
           const widthPercent = Math.max(
             (duration / totalDuration) * 100,
-            2, // minimum visible width
+            2,
           );
           const color =
-            ActivityColors[segment.activityType] ?? ActivityColors.unknown;
+            activityColors[segment.activityType as keyof typeof activityColors] ??
+            activityColors.unknown;
 
           return (
             <View
@@ -62,13 +64,14 @@ export function SegmentTimeline({
                   styles.legendDot,
                   {
                     backgroundColor:
-                      ActivityColors[type] ?? ActivityColors.unknown,
+                      activityColors[type as keyof typeof activityColors] ??
+                      activityColors.unknown,
                   },
                 ]}
               />
-              <Text style={[styles.legendLabel, { color: subtleColor }]}>
+              <ThemedText variant="labelMd" color="onSurfaceVariant">
                 {SEGMENT_LABELS[type] ?? type}
-              </Text>
+              </ThemedText>
             </View>
           ),
         )}
@@ -79,36 +82,32 @@ export function SegmentTimeline({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
   },
   bar: {
     flexDirection: 'row',
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: Radii.full,
     overflow: 'hidden',
-    // backgroundColor set dynamically via style prop
   },
   segment: {
     height: '100%',
   },
   legend: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
-    justifyContent: 'center',
+    gap: Spacing.lg,
+    marginTop: Spacing.sm,
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
   },
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-  },
-  legendLabel: {
-    fontSize: 12,
-    textTransform: 'capitalize',
+    borderRadius: Radii.full,
   },
 });

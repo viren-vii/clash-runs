@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, Text, FlatList } from 'react-native';
+import { StyleSheet, View, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+
 import { getAllSessions } from '@/lib/database/sessions-repository';
 import { getRoutePoints } from '@/lib/database/route-repository';
 import { SessionCard } from '@/components/sessions/session-card';
+import { ThemedText } from '@/components/themed-text';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { PageInsets, Spacing } from '@/constants/theme';
 import type { Session, RoutePoint } from '@/lib/types';
 
 interface SessionWithRoute {
@@ -15,9 +19,7 @@ interface SessionWithRoute {
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
+  const bgColor = useThemeColor({}, 'surface');
 
   const [sessions, setSessions] = useState<SessionWithRoute[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,7 +39,6 @@ export default function HistoryScreen() {
     }
   }, []);
 
-  // Reload when tab is focused
   useFocusEffect(
     useCallback(() => {
       loadSessions();
@@ -58,23 +59,24 @@ export default function HistoryScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.list,
-          { paddingTop: insets.top + 16 },
+          { paddingTop: insets.top + Spacing.lg },
         ]}
+        ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
         ListHeaderComponent={
-          <Text style={[styles.title, { color: textColor }]}>History</Text>
+          <ThemedText variant="displaySm" color="onSurface" style={styles.title}>
+            History
+          </ThemedText>
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: subtleColor }]}>
-              No completed activities yet.
-            </Text>
-          </View>
+          <EmptyState
+            icon="history"
+            title="No activities yet"
+            description="Complete your first activity and it will appear here."
+            style={styles.empty}
+          />
         }
         renderItem={({ item }) => (
-          <SessionCard
-            session={item.session}
-            routePoints={item.routePoints}
-          />
+          <SessionCard session={item.session} routePoints={item.routePoints} />
         )}
         refreshing={refreshing}
         onRefresh={handleRefresh}
@@ -88,20 +90,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    paddingBottom: Spacing['2xl'],
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
-    marginBottom: 24,
+    letterSpacing: -0.72,
+    marginBottom: Spacing.xl,
   },
   empty: {
     alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
+    paddingVertical: Spacing['3xl'],
   },
 });

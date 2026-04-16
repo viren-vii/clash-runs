@@ -1,26 +1,32 @@
 import React from 'react';
-import { StyleSheet, View, Text, Alert, useColorScheme } from 'react-native';
+import { StyleSheet, View, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+
 import { RouteMap } from '@/components/tracking/route-map';
 import { StatsDisplay } from '@/components/tracking/stats-display';
 import { ControlButtons } from '@/components/tracking/control-buttons';
 import { useTracking } from '@/lib/tracking/tracking-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { StatusColors } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  Colors,
+  PageInsets,
+  Radii,
+  Spacing,
+} from '@/constants/theme';
 import type { SessionSummary } from '@/lib/types';
 
 export default function ActiveTrackingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state, pauseSession, resumeSession, stopSession } = useTracking();
-  const bgColor = useThemeColor({}, 'background');
-  const panelBg = useThemeColor(
-    { light: 'rgba(255,255,255,0.97)', dark: 'rgba(21,23,24,0.97)' },
-    'background',
-  );
-  const textColor = useThemeColor({}, 'text');
-  const colorScheme = useColorScheme();
+  const scheme = useColorScheme() ?? 'dark';
+  const palette = Colors[scheme];
+  const bgColor = useThemeColor({}, 'surface');
+  const handleColor = useThemeColor({}, 'outlineVariant');
 
   const handleStop = () => {
     Alert.alert(
@@ -48,12 +54,19 @@ export default function ActiveTrackingScreen() {
     );
   };
 
-  const statusColor =
-    state.status === 'active' ? StatusColors.active : StatusColors.paused;
+  const isActive = state.status === 'active';
+  // Active: scheme's primary (bright lime on dark, deep lime on light) so the
+  // "pulse" feels alive without blinding the user in light mode. Paused: a
+  // muted surface tier — communicates "not live" without alarm.
+  const statusColor = isActive ? palette.primary : palette.surfaceContainerHigh;
+  const statusTextColor = isActive ? palette.onPrimary : palette.onSurfaceVariant;
+  // Dark mode: rgba(0,0,0,0.55). Light mode: rgba(255,255,255,0.55).
+  const scrimOverlay =
+    scheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)';
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Status indicator */}
+      {/* Status bar — Electric Lime when live, neutral when paused */}
       <View
         style={[
           styles.statusBar,
@@ -61,45 +74,54 @@ export default function ActiveTrackingScreen() {
         ]}
         accessibilityRole="header"
         accessibilityLabel={
-          state.status === 'active'
+          isActive
             ? 'Activity tracking is active'
             : 'Activity tracking is paused'
         }
       >
-        <Text style={styles.statusText}>
-          {state.status === 'active' ? 'Tracking' : 'Paused'}
-        </Text>
+        <ThemedText
+          variant="labelLg"
+          style={[styles.statusText, { color: statusTextColor }]}
+        >
+          {isActive ? 'Tracking' : 'Paused'}
+        </ThemedText>
       </View>
 
-      {/* Map */}
+      {/* Full-bleed map */}
       <View style={styles.mapContainer}>
         <RouteMap />
       </View>
 
-      {/* Bottom panel */}
-      <View
+      {/* Live HUD — BlurView over the map with a scrim tint.
+          Spec: 60% scrim + 20px backdrop blur for the live-HUD pattern. */}
+      <BlurView
+        tint={scheme === 'dark' ? 'dark' : 'light'}
+        intensity={Platform.OS === 'ios' ? 60 : 90}
         style={[
           styles.panel,
-          {
-            backgroundColor: panelBg,
-            paddingBottom: insets.bottom + 8,
-            shadowColor: colorScheme === 'dark' ? '#000' : '#666',
-          },
+          { paddingBottom: insets.bottom + Spacing.sm },
         ]}
       >
-        <View style={styles.panelHandle} />
+        {/* Scrim color overlay — Android's BlurView doesn't darken reliably on its own */}
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFillObject, { backgroundColor: scrimOverlay }]}
+        />
+        <View
+          style={[styles.panelHandle, { backgroundColor: handleColor }]}
+        />
         <StatsDisplay
           elapsedTime={state.elapsedTime}
           totalDistance={state.totalDistance}
           currentPace={state.currentPace}
         />
         <ControlButtons
-          status={state.status === 'active' ? 'active' : 'paused'}
+          status={isActive ? 'active' : 'paused'}
           onPause={pauseSession}
           onResume={resumeSession}
           onStop={handleStop}
         />
-      </View>
+      </BlurView>
     </View>
   );
 }
@@ -110,34 +132,29 @@ const styles = StyleSheet.create({
   },
   statusBar: {
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingBottom: Spacing.sm,
   },
   statusText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
     letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   mapContainer: {
     flex: 1,
   },
   panel: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -24,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    paddingTop: Spacing.sm,
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
+    marginTop: -Spacing.xl,
+    overflow: 'hidden',
   },
   panelHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(128,128,128,0.3)',
     alignSelf: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 });

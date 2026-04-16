@@ -1,20 +1,24 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
 import {
   formatElapsedTime,
   formatDistance,
   formatPace,
   getPaceUnit,
 } from '@/lib/tracking/distance-calculator';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { ThemedText } from '@/components/themed-text';
+import { StatBlock } from '@/components/ui/stat-block';
 import { useSettings } from '@/lib/settings/settings-context';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import { Spacing } from '@/constants/theme';
 
 interface StatsDisplayProps {
   elapsedTime: number;
   totalDistance: number;
   currentPace: number | null;
   compact?: boolean;
-  /** Use white text (for display on colored backgrounds) */
+  /** Render on top of a colored surface (inverts label contrast). */
   invertColors?: boolean;
 }
 
@@ -25,57 +29,56 @@ export function StatsDisplay({
   compact = false,
   invertColors = false,
 }: StatsDisplayProps) {
-  const themeTextColor = useThemeColor({}, 'text');
-  const themeSubtleColor = useThemeColor({}, 'icon');
-  const textColor = invertColors ? '#fff' : themeTextColor;
-  const subtleColor = invertColors ? 'rgba(255,255,255,0.7)' : themeSubtleColor;
   const { unitSystem } = useSettings();
   const paceUnit = getPaceUnit(unitSystem);
+  // Divider: scheme-aware subtle tint on the surface beneath. When `invertColors`
+  // is set we're on a colored fill (e.g. primary) so use a white wash instead.
+  const neutralDivider = useThemeColor({}, 'outlineVariant');
 
   if (compact) {
+    const dividerBg = invertColors ? 'rgba(255,255,255,0.35)' : neutralDivider;
     return (
       <View style={styles.compactRow}>
-        <Text style={[styles.compactValue, { color: textColor }]}>
+        <ThemedText variant="metricSm" color={invertColors ? 'onPrimary' : 'onSurface'}>
           {formatDistance(totalDistance, unitSystem)}
-        </Text>
-        <Text style={[styles.compactSeparator, { color: subtleColor }]}>
-          {' | '}
-        </Text>
-        <Text style={[styles.compactValue, { color: textColor }]}>
+        </ThemedText>
+        <View style={[styles.compactDivider, { backgroundColor: dividerBg }]} />
+        <ThemedText variant="metricSm" color={invertColors ? 'onPrimary' : 'onSurface'}>
           {formatElapsedTime(elapsedTime)}
-        </Text>
-        <Text style={[styles.compactSeparator, { color: subtleColor }]}>
-          {' | '}
-        </Text>
-        <Text style={[styles.compactValue, { color: textColor }]}>
+        </ThemedText>
+        <View style={[styles.compactDivider, { backgroundColor: dividerBg }]} />
+        <ThemedText variant="metricSm" color={invertColors ? 'onPrimary' : 'onSurface'}>
           {formatPace(currentPace, unitSystem)} {paceUnit}
-        </Text>
+        </ThemedText>
       </View>
     );
   }
 
+  const valueColor = invertColors ? 'onPrimary' : 'onSurface';
+
   return (
     <View style={styles.grid}>
-      <View style={styles.statItem}>
-        <Text style={[styles.statValue, { color: textColor }]}>
-          {formatElapsedTime(elapsedTime)}
-        </Text>
-        <Text style={[styles.statLabel, { color: subtleColor }]}>Time</Text>
-      </View>
-      <View style={styles.statItem}>
-        <Text style={[styles.statValue, { color: textColor }]}>
-          {formatDistance(totalDistance, unitSystem)}
-        </Text>
-        <Text style={[styles.statLabel, { color: subtleColor }]}>
-          Distance
-        </Text>
-      </View>
-      <View style={styles.statItem}>
-        <Text style={[styles.statValue, { color: textColor }]}>
-          {formatPace(currentPace, unitSystem)} {paceUnit}
-        </Text>
-        <Text style={[styles.statLabel, { color: subtleColor }]}>Pace</Text>
-      </View>
+      <StatBlock
+        size="md"
+        align="left"
+        value={formatElapsedTime(elapsedTime)}
+        label="Time"
+        valueColor={valueColor}
+      />
+      <StatBlock
+        size="lg"
+        align="left"
+        value={formatDistance(totalDistance, unitSystem)}
+        label="Distance"
+        valueColor={valueColor}
+      />
+      <StatBlock
+        size="md"
+        align="right"
+        value={`${formatPace(currentPace, unitSystem)} ${paceUnit}`}
+        label="Pace"
+        valueColor={valueColor}
+      />
     </View>
   );
 }
@@ -83,35 +86,20 @@ export function StatsDisplay({
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingVertical: Spacing.md,
+    gap: Spacing.lg,
   },
   compactRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.md,
   },
-  compactValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  compactSeparator: {
-    fontSize: 14,
+  compactDivider: {
+    width: 1,
+    height: 16,
+    borderRadius: 1,
   },
 });

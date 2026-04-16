@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Pressable, Alert } from 'react-native';
+import { StyleSheet, View, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { ActivityTypePicker } from '@/components/tracking/activity-type-picker';
 import { useTracking } from '@/lib/tracking/tracking-context';
 import {
@@ -10,7 +11,11 @@ import {
 } from '@/lib/tracking/permissions';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useSettings } from '@/lib/settings/settings-context';
-import { ActivityColors } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { WarningBanner } from '@/components/ui/warning-banner';
+import { PageInsets, Spacing } from '@/constants/theme';
 import type { SessionActivityType } from '@/lib/types';
 
 const ACTIVITY_HINTS: Record<SessionActivityType, string> = {
@@ -25,11 +30,8 @@ export default function PreStartScreen() {
   const insets = useSafeAreaInsets();
   const { startSession } = useTracking();
   const { weight } = useSettings();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
-  const tintColor = useThemeColor({}, 'tint');
-  const cardColor = useThemeColor({}, 'card');
+  const bgColor = useThemeColor({}, 'surface');
+  const tintColor = useThemeColor({}, 'primary');
 
   const [activityType, setActivityType] = useState<SessionActivityType>('walk');
   const [permissionsReady, setPermissionsReady] = useState(false);
@@ -83,7 +85,6 @@ export default function PreStartScreen() {
         { backgroundColor: bgColor, paddingTop: insets.top },
       ]}
     >
-      {/* Header area */}
       <View style={styles.headerArea}>
         <View style={styles.navBar}>
           <Pressable
@@ -93,59 +94,65 @@ export default function PreStartScreen() {
             accessibilityRole="button"
             accessibilityLabel="Cancel"
           >
-            <Text style={[styles.cancelText, { color: tintColor }]}>
+            <ThemedText variant="titleMd" style={{ color: tintColor }}>
               Cancel
-            </Text>
+            </ThemedText>
           </Pressable>
         </View>
-        <Text style={[styles.screenTitle, { color: textColor }]}>
+        <ThemedText
+          variant="displaySm"
+          color="onSurface"
+          style={styles.screenTitle}
+        >
           New Activity
-        </Text>
-        <Text style={[styles.screenSubtitle, { color: subtleColor }]}>
+        </ThemedText>
+        <ThemedText
+          variant="bodyLg"
+          color="onSurfaceVariant"
+          style={styles.screenSubtitle}
+        >
           What are you up to?
-        </Text>
+        </ThemedText>
       </View>
 
-      {/* Picker card */}
       <View style={styles.pickerSection}>
-        <View style={[styles.pickerCard, { backgroundColor: cardColor }]}>
+        <SurfaceCard
+          tier="surfaceContainerLow"
+          radius="xl"
+          padding={Spacing.lg}
+        >
           <ActivityTypePicker
             selected={activityType}
             onSelect={setActivityType}
           />
-        </View>
+        </SurfaceCard>
 
-        <Text style={[styles.hint, { color: subtleColor }]}>
+        <ThemedText
+          variant="bodyMd"
+          color="onSurfaceVariant"
+          style={styles.hint}
+        >
           {ACTIVITY_HINTS[activityType]}
-        </Text>
+        </ThemedText>
 
         {!permissionsReady && (
-          <Text style={styles.warning}>
-            Location permission is needed to track your route.
-          </Text>
+          <WarningBanner
+            severity="warning"
+            message="Location permission is needed to track your route."
+          />
         )}
       </View>
 
-      {/* Start button */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.startButton,
-            starting && styles.startButtonDisabled,
-            pressed && !starting && styles.startButtonPressed,
-          ]}
+        <PrimaryButton
+          label={starting ? 'Starting...' : 'Start'}
+          size="lg"
           onPress={handleStart}
           disabled={starting}
-          accessibilityRole="button"
           accessibilityLabel={
             starting ? 'Starting activity' : `Start ${activityType} activity`
           }
-          accessibilityState={{ disabled: starting }}
-        >
-          <Text style={styles.startButtonText}>
-            {starting ? 'Starting...' : 'Start'}
-          </Text>
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -155,11 +162,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-
-  // Header
   headerArea: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    paddingBottom: Spacing.sm,
   },
   navBar: {
     flexDirection: 'row',
@@ -169,65 +175,24 @@ const styles = StyleSheet.create({
   cancelButton: {
     minWidth: 60,
   },
-  cancelText: {
-    fontSize: 17,
-  },
   screenTitle: {
-    fontSize: 32,
-    fontWeight: '800',
+    letterSpacing: -0.72,
   },
   screenSubtitle: {
-    fontSize: 16,
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
-
-  // Picker
   pickerSection: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-  pickerCard: {
-    borderRadius: 20,
-    padding: 20,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    gap: Spacing.lg,
   },
   hint: {
-    fontSize: 15,
     textAlign: 'center',
   },
-  warning: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#FF9800',
-  },
-
-  // Footer
   footer: {
-    paddingHorizontal: 20,
-  },
-  startButton: {
-    backgroundColor: ActivityColors.running,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  startButtonDisabled: {
-    opacity: 0.6,
-  },
-  startButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.98 }],
-  },
-  startButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 1,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
   },
 });
