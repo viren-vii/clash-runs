@@ -1,22 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { sessionManager } from '@/lib/tracking/session-manager';
 import { useTracking } from '@/lib/tracking/tracking-context';
-import { formatElapsedTime, formatDistance } from '@/lib/tracking/distance-calculator';
+import { useSettings } from '@/lib/settings/settings-context';
+import {
+  formatElapsedTime,
+  formatDistance,
+} from '@/lib/tracking/distance-calculator';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { ActivityColors, StatusColors } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { StatBlock } from '@/components/ui/stat-block';
+import { PrimaryButton, SecondaryButton } from '@/components/ui/primary-button';
+import { PageInsets, Spacing } from '@/constants/theme';
 import type { Session } from '@/lib/types';
 
 export default function RecoveryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { discardSession } = useTracking();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
-  const cardColor = useThemeColor({}, 'card');
+  const { unitSystem } = useSettings();
+  const bgColor = useThemeColor({}, 'surface');
+  const tintColor = useThemeColor({}, 'primary');
 
   const [orphanedSession, setOrphanedSession] = useState<Session | null>(null);
 
@@ -35,14 +43,26 @@ export default function RecoveryScreen() {
 
   if (!orphanedSession) {
     return (
-      <View style={[styles.container, { backgroundColor: bgColor }]}>
-        <Text style={[styles.noSession, { color: subtleColor }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: bgColor, paddingTop: insets.top + Spacing.lg },
+        ]}
+      >
+        <ThemedText
+          variant="bodyLg"
+          color="onSurfaceVariant"
+          style={styles.noSession}
+        >
           No session to recover.
-        </Text>
+        </ThemedText>
         <Pressable onPress={() => router.back()}>
-          <Text style={[styles.link, { color: ActivityColors.running }]}>
+          <ThemedText
+            variant="labelLg"
+            style={[styles.link, { color: tintColor }]}
+          >
             Go Back
-          </Text>
+          </ThemedText>
         </Pressable>
       </View>
     );
@@ -52,46 +72,64 @@ export default function RecoveryScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: bgColor, paddingTop: insets.top + 20 },
+        { backgroundColor: bgColor, paddingTop: insets.top + Spacing.lg },
       ]}
     >
-      <Text style={[styles.title, { color: textColor }]}>
+      <ThemedText variant="displaySm" color="onSurface" style={styles.title}>
         Recover Activity?
-      </Text>
-      <Text style={[styles.subtitle, { color: subtleColor }]}>
+      </ThemedText>
+      <ThemedText
+        variant="bodyLg"
+        color="onSurfaceVariant"
+        style={styles.subtitle}
+      >
         An unfinished activity was found from a previous session.
-      </Text>
+      </ThemedText>
 
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
-        <Text style={[styles.cardLabel, { color: subtleColor }]}>
-          Started
-        </Text>
-        <Text style={[styles.cardValue, { color: textColor }]}>
-          {new Date(orphanedSession.startTime).toLocaleString()}
-        </Text>
-
-        <Text style={[styles.cardLabel, { color: subtleColor, marginTop: 12 }]}>
-          Duration before interruption
-        </Text>
-        <Text style={[styles.cardValue, { color: textColor }]}>
-          {formatElapsedTime(orphanedSession.elapsedTime)}
-        </Text>
-
-        <Text style={[styles.cardLabel, { color: subtleColor, marginTop: 12 }]}>
-          Distance recorded
-        </Text>
-        <Text style={[styles.cardValue, { color: textColor }]}>
-          {formatDistance(orphanedSession.totalDistance)}
-        </Text>
-      </View>
+      <SurfaceCard
+        tier="surfaceContainerLow"
+        radius="xl"
+        padding={Spacing.lg}
+        style={styles.card}
+      >
+        <View style={styles.cardRow}>
+          <ThemedText variant="labelMd" color="onSurfaceVariant">
+            STARTED
+          </ThemedText>
+          <ThemedText variant="bodyMd" color="onSurface">
+            {new Date(orphanedSession.startTime).toLocaleString()}
+          </ThemedText>
+        </View>
+        <View style={styles.statsRow}>
+          <StatBlock
+            size="md"
+            align="left"
+            value={formatElapsedTime(orphanedSession.elapsedTime)}
+            label="Duration"
+          />
+          <StatBlock
+            size="md"
+            align="right"
+            value={formatDistance(orphanedSession.totalDistance, unitSystem)}
+            label="Distance"
+          />
+        </View>
+      </SurfaceCard>
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable style={styles.resumeButton} onPress={handleResume}>
-          <Text style={styles.resumeButtonText}>Resume Activity</Text>
-        </Pressable>
-        <Pressable style={styles.discardButton} onPress={handleDiscard}>
-          <Text style={styles.discardButtonText}>Discard</Text>
-        </Pressable>
+        <PrimaryButton
+          label="Resume Activity"
+          size="lg"
+          onPress={handleResume}
+          accessibilityLabel="Resume the orphaned activity"
+        />
+        <SecondaryButton
+          label="Discard"
+          size="md"
+          destructive
+          onPress={handleDiscard}
+          accessibilityLabel="Discard the orphaned activity"
+        />
       </View>
     </View>
   );
@@ -100,66 +138,37 @@ export default function RecoveryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 8,
+    letterSpacing: -0.72,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    fontSize: 15,
-    marginBottom: 24,
+    marginBottom: Spacing.xl,
   },
   noSession: {
-    fontSize: 16,
     textAlign: 'center',
     marginTop: 100,
   },
   link: {
-    fontSize: 16,
     textAlign: 'center',
-    marginTop: 16,
-    fontWeight: '600',
+    marginTop: Spacing.md,
   },
   card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
+    gap: Spacing.md,
   },
-  cardLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  cardRow: {
+    gap: Spacing.xs,
   },
-  cardValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 4,
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: Spacing.md,
   },
   actions: {
     marginTop: 'auto',
-    gap: 12,
-  },
-  resumeButton: {
-    backgroundColor: ActivityColors.running,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  resumeButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  discardButton: {
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  discardButtonText: {
-    color: StatusColors.active,
-    fontSize: 16,
-    fontWeight: '600',
+    gap: Spacing.md,
   },
 });

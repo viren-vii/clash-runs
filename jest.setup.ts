@@ -167,3 +167,30 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 // Health integrations — platform-gated, mock the whole module
 jest.mock('@kingstinct/react-native-healthkit', () => ({}));
 jest.mock('react-native-health-connect', () => ({}));
+
+// expo-blur — BlurView is a visual effect, render as a plain View in tests
+jest.mock('expo-blur', () => {
+  const React = require('react');
+  return {
+    BlurView: (props: Record<string, unknown>) =>
+      React.createElement('BlurView', props),
+  };
+});
+
+// lucide-react-native — render icons as simple placeholders in tests.
+// Using a Proxy lets any `lucide.Footprints`/`lucide.Zap` import resolve.
+jest.mock('lucide-react-native', () => {
+  const React = require('react');
+  const stub = (name: string) => {
+    const Comp = (props: Record<string, unknown>) =>
+      React.createElement('LucideIcon', { ...props, 'data-name': name });
+    Comp.displayName = name;
+    return Comp;
+  };
+  return new Proxy(
+    {},
+    {
+      get: (_t, key: string) => stub(key),
+    },
+  );
+});

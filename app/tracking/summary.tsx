@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { RouteMapStatic } from '@/components/tracking/route-map-static';
 import { StatsDisplay } from '@/components/tracking/stats-display';
 import { SegmentTimeline } from '@/components/sessions/segment-timeline';
-import { getSession } from '@/lib/database/sessions-repository';
+import { getSession, deleteSession } from '@/lib/database/sessions-repository';
 import { getRoutePoints } from '@/lib/database/route-repository';
 import { getSegments } from '@/lib/database/segments-repository';
-import { deleteSession } from '@/lib/database/sessions-repository';
 import { calculatePace } from '@/lib/tracking/distance-calculator';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { ActivityColors, StatusColors } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { PrimaryButton, SecondaryButton } from '@/components/ui/primary-button';
+import { PageInsets, Radii, Spacing } from '@/constants/theme';
 import type { Session, RoutePoint, ActivitySegment } from '@/lib/types';
 
 export default function SummaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
+  const bgColor = useThemeColor({}, 'surface');
 
   const [session, setSession] = useState<Session | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
@@ -61,9 +62,13 @@ export default function SummaryScreen() {
   if (!session) {
     return (
       <View style={[styles.container, { backgroundColor: bgColor }]}>
-        <Text style={[styles.loading, { color: subtleColor }]}>
+        <ThemedText
+          variant="bodyLg"
+          color="onSurfaceVariant"
+          style={styles.loading}
+        >
           Loading...
-        </Text>
+        </ThemedText>
       </View>
     );
   }
@@ -73,62 +78,95 @@ export default function SummaryScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: bgColor }]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + Spacing.lg },
+      ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.title, { color: textColor }]}>Activity Summary</Text>
+      <ThemedText
+        variant="displaySm"
+        color="onSurface"
+        style={styles.title}
+      >
+        Activity Summary
+      </ThemedText>
 
-      <RouteMapStatic routePoints={routePoints} height={250} />
-
-      <StatsDisplay
-        elapsedTime={session.elapsedTime}
-        totalDistance={session.totalDistance}
-        currentPace={pace}
-      />
-
-      {segments.length > 0 && (
-        <SegmentTimeline
-          segments={segments}
-          totalDuration={session.elapsedTime}
-        />
-      )}
-
-      {/* Metadata */}
-      <View style={styles.metadata}>
-        <Text style={[styles.metaLabel, { color: subtleColor }]}>
-          Started:{' '}
-          <Text style={{ color: textColor }}>
-            {new Date(session.startTime).toLocaleString()}
-          </Text>
-        </Text>
-        {session.endTime && (
-          <Text style={[styles.metaLabel, { color: subtleColor }]}>
-            Ended:{' '}
-            <Text style={{ color: textColor }}>
-              {new Date(session.endTime).toLocaleString()}
-            </Text>
-          </Text>
-        )}
+      <View style={styles.mapWrapper}>
+        <RouteMapStatic routePoints={routePoints} height={250} />
       </View>
 
-      {/* Actions */}
+      <SurfaceCard
+        tier="surfaceContainerLow"
+        radius="xl"
+        padding={Spacing.lg}
+      >
+        <StatsDisplay
+          elapsedTime={session.elapsedTime}
+          totalDistance={session.totalDistance}
+          currentPace={pace}
+        />
+      </SurfaceCard>
+
+      {segments.length > 0 && (
+        <SurfaceCard
+          tier="surfaceContainerLow"
+          radius="xl"
+          padding={Spacing.lg}
+        >
+          <ThemedText
+            variant="titleMd"
+            color="onSurface"
+            style={styles.cardTitle}
+          >
+            Timeline
+          </ThemedText>
+          <SegmentTimeline
+            segments={segments}
+            totalDuration={session.elapsedTime}
+          />
+        </SurfaceCard>
+      )}
+
+      <SurfaceCard
+        tier="surfaceContainerLow"
+        radius="xl"
+        padding={Spacing.lg}
+      >
+        <View style={styles.metaRow}>
+          <ThemedText variant="labelMd" color="onSurfaceVariant">
+            Started
+          </ThemedText>
+          <ThemedText variant="bodyMd" color="onSurface">
+            {new Date(session.startTime).toLocaleString()}
+          </ThemedText>
+        </View>
+        {session.endTime && (
+          <View style={styles.metaRow}>
+            <ThemedText variant="labelMd" color="onSurfaceVariant">
+              Ended
+            </ThemedText>
+            <ThemedText variant="bodyMd" color="onSurface">
+              {new Date(session.endTime).toLocaleString()}
+            </ThemedText>
+          </View>
+        )}
+      </SurfaceCard>
+
       <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={styles.saveButton}
+        <PrimaryButton
+          label="Done"
+          size="lg"
           onPress={() => router.replace('/(tabs)')}
-          accessibilityRole="button"
           accessibilityLabel="Save activity and return home"
-        >
-          <Text style={styles.saveButtonText}>Done</Text>
-        </Pressable>
-        <Pressable
-          style={styles.discardButton}
+        />
+        <SecondaryButton
+          label="Discard"
+          size="md"
+          destructive
           onPress={handleDiscard}
-          accessibilityRole="button"
           accessibilityLabel="Discard this activity"
-        >
-          <Text style={styles.discardButtonText}>Discard</Text>
-        </Pressable>
+        />
       </View>
     </ScrollView>
   );
@@ -139,49 +177,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    paddingBottom: Spacing['2xl'],
+    gap: Spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 20,
+    letterSpacing: -0.72,
+    marginBottom: Spacing.sm,
+  },
+  mapWrapper: {
+    borderRadius: Radii.xl,
+    overflow: 'hidden',
+  },
+  cardTitle: {
+    marginBottom: Spacing.sm,
   },
   loading: {
-    fontSize: 16,
     textAlign: 'center',
     marginTop: 100,
   },
-  metadata: {
-    paddingVertical: 16,
-    gap: 4,
-  },
-  metaLabel: {
-    fontSize: 13,
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
   },
   actions: {
-    gap: 12,
-    marginTop: 16,
-  },
-  saveButton: {
-    backgroundColor: ActivityColors.running,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  discardButton: {
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  discardButtonText: {
-    color: StatusColors.active,
-    fontSize: 16,
-    fontWeight: '600',
+    gap: Spacing.md,
+    marginTop: Spacing.md,
   },
 });

@@ -22,15 +22,16 @@ describe('ActivityTypePicker', () => {
     });
   });
 
-  it('renders emoji icons', async () => {
+  it('renders Lucide icons for each activity', async () => {
     render(
       <ActivityTypePicker selected="run" onSelect={onSelect} />,
       { wrapper: TestWrapper },
     );
     await waitFor(() => {
-      expect(screen.getByText('🚶')).toBeTruthy();
-      expect(screen.getByText('🏃')).toBeTruthy();
-      expect(screen.getByText('🚴')).toBeTruthy();
+      // Icons are now Lucide stubs; verify labels still appear alongside them
+      expect(screen.getByText('Walk')).toBeTruthy();
+      expect(screen.getByText('Run')).toBeTruthy();
+      expect(screen.getByText('Cycle')).toBeTruthy();
     });
   });
 

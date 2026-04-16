@@ -51,9 +51,7 @@ describe('HistoryScreen', () => {
   it('shows empty state when no sessions', async () => {
     render(<HistoryScreen />, { wrapper: TestWrapper });
     await waitFor(() => {
-      expect(
-        screen.getByText('No completed activities yet.'),
-      ).toBeTruthy();
+      expect(screen.getByText('No activities yet')).toBeTruthy();
     });
   });
 
@@ -77,7 +75,6 @@ describe('HistoryScreen', () => {
 
     render(<HistoryScreen />, { wrapper: TestWrapper });
     await waitFor(() => {
-      expect(screen.getByText(/🏃/)).toBeTruthy();
       expect(screen.getByText(/Run/)).toBeTruthy();
       expect(screen.getByText('5.00 km')).toBeTruthy();
     });
@@ -115,8 +112,8 @@ describe('HistoryScreen', () => {
 
     render(<HistoryScreen />, { wrapper: TestWrapper });
     await waitFor(() => {
-      expect(screen.getByText(/🏃/)).toBeTruthy();
-      expect(screen.getByText(/🚶/)).toBeTruthy();
+      expect(screen.getByText(/Run/)).toBeTruthy();
+      expect(screen.getByText(/Walk/)).toBeTruthy();
     });
   });
 });

@@ -57,12 +57,16 @@ async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
   `);
 
   // Migrations — add columns that didn't exist in the original schema
-  try {
-    await database.execAsync(
-      `ALTER TABLE sessions ADD COLUMN user_weight REAL DEFAULT 70;`,
-    );
-  } catch {
-    // Column already exists — ignore
+  const migrations = [
+    'ALTER TABLE sessions ADD COLUMN user_weight REAL DEFAULT 70',
+    'ALTER TABLE sessions ADD COLUMN synced_at INTEGER',
+  ];
+  for (const sql of migrations) {
+    try {
+      await database.execAsync(`${sql};`);
+    } catch {
+      // Column already exists — ignore
+    }
   }
 }
 

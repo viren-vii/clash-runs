@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Pressable, Platform } from 'react-native';
+import { StyleSheet, View, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import {
   requestForegroundLocation,
   requestBackgroundLocation,
 } from '@/lib/tracking/permissions';
 import { getHealthService } from '@/lib/health/health-service';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { ActivityColors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemedText } from '@/components/themed-text';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { Colors, PageInsets, Radii, Spacing } from '@/constants/theme';
 
 interface Step {
   title: string;
@@ -19,10 +23,10 @@ interface Step {
 export default function PermissionsOnboarding() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
-  const cardColor = useThemeColor({}, 'card');
+  const scheme = useColorScheme() ?? 'dark';
+  const palette = Colors[scheme];
+  const bgColor = useThemeColor({}, 'surface');
+  const inactiveTrack = useThemeColor({}, 'surfaceContainerHigh');
 
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -86,10 +90,10 @@ export default function PermissionsOnboarding() {
     <View
       style={[
         styles.container,
-        { backgroundColor: bgColor, paddingTop: insets.top + 20 },
+        { backgroundColor: bgColor, paddingTop: insets.top + Spacing.lg },
       ]}
     >
-      {/* Progress indicator */}
+      {/* Progress indicator — lime segments */}
       <View style={styles.progress}>
         {steps.map((_, i) => (
           <View
@@ -98,7 +102,7 @@ export default function PermissionsOnboarding() {
               styles.progressDot,
               {
                 backgroundColor:
-                  i <= currentStep ? ActivityColors.running : cardColor,
+                  i <= currentStep ? palette.primary : inactiveTrack,
               },
             ]}
           />
@@ -106,29 +110,40 @@ export default function PermissionsOnboarding() {
       </View>
 
       <View style={styles.content}>
-        <Text style={[styles.stepLabel, { color: subtleColor }]}>
-          Step {currentStep + 1} of {steps.length}
-        </Text>
-        <Text style={[styles.title, { color: textColor }]}>{step.title}</Text>
-        <Text style={[styles.description, { color: subtleColor }]}>
+        <ThemedText
+          variant="labelMd"
+          color="onSurfaceVariant"
+          style={styles.stepLabel}
+        >
+          STEP {currentStep + 1} OF {steps.length}
+        </ThemedText>
+        <ThemedText
+          variant="displaySm"
+          color="onSurface"
+          style={styles.title}
+        >
+          {step.title}
+        </ThemedText>
+        <ThemedText
+          variant="bodyLg"
+          color="onSurfaceVariant"
+          style={styles.description}
+        >
           {step.description}
-        </Text>
+        </ThemedText>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={[styles.allowButton, loading && styles.buttonDisabled]}
+        <PrimaryButton
+          label={loading ? 'Requesting...' : 'Allow'}
+          size="lg"
           onPress={handleAction}
           disabled={loading}
-        >
-          <Text style={styles.allowButtonText}>
-            {loading ? 'Requesting...' : 'Allow'}
-          </Text>
-        </Pressable>
+        />
         <Pressable style={styles.skipButton} onPress={handleSkip}>
-          <Text style={[styles.skipButtonText, { color: subtleColor }]}>
+          <ThemedText variant="labelLg" color="onSurfaceVariant">
             Skip for now
-          </Text>
+          </ThemedText>
         </Pressable>
       </View>
     </View>
@@ -138,60 +153,40 @@ export default function PermissionsOnboarding() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
   },
   progress: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
     justifyContent: 'center',
-    marginBottom: 40,
+    marginBottom: Spacing['2xl'],
   },
   progressDot: {
     width: 32,
     height: 4,
-    borderRadius: 2,
+    borderRadius: Radii.full,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
   },
   stepLabel: {
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
+    letterSpacing: 1.5,
+    marginBottom: Spacing.md,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
-    marginBottom: 16,
+    letterSpacing: -0.72,
+    marginBottom: Spacing.md,
   },
   description: {
-    fontSize: 17,
     lineHeight: 24,
   },
   footer: {
-    gap: 12,
-  },
-  allowButton: {
-    backgroundColor: ActivityColors.running,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  allowButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    gap: Spacing.md,
   },
   skipButton: {
-    paddingVertical: 12,
+    paddingVertical: Spacing.sm,
     alignItems: 'center',
-  },
-  skipButtonText: {
-    fontSize: 15,
   },
 });

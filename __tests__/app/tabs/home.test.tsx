@@ -184,7 +184,7 @@ describe('HomeScreen', () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Last Activity')).toBeTruthy();
-      expect(screen.getByText(/🏃/)).toBeTruthy();
+      expect(screen.getAllByText(/Run/).length).toBeGreaterThanOrEqual(1);
       // 5.00 km appears in both the weekly summary and last activity card
       expect(screen.getAllByText('5.00 km').length).toBeGreaterThanOrEqual(1);
     });

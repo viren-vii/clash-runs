@@ -1,32 +1,92 @@
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   ScrollView,
   Pressable,
   TextInput,
   Modal,
-  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+
 import { getAllSessions } from '@/lib/database/sessions-repository';
-import { formatDistance, formatElapsedTime } from '@/lib/tracking/distance-calculator';
+import {
+  formatDistance,
+  formatElapsedTime,
+} from '@/lib/tracking/distance-calculator';
+import { ThemedText } from '@/components/themed-text';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { StatBlock } from '@/components/ui/stat-block';
+import { PrimaryButton } from '@/components/ui/primary-button';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   useSettings,
   type UnitSystem,
   type ThemePreference,
 } from '@/lib/settings/settings-context';
+import { Colors, PageInsets, Radii, Spacing, Typography } from '@/constants/theme';
+
+type SegmentOption<T> = { value: T; label: string };
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  labelRole,
+}: {
+  options: SegmentOption<T>[];
+  value: T;
+  onChange: (v: T) => void;
+  labelRole: string;
+}) {
+  const scheme = useColorScheme() ?? 'dark';
+  const palette = Colors[scheme];
+
+  return (
+    <View style={styles.segmentedControl}>
+      {options.map((option) => {
+        const isActive = value === option.value;
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.segment,
+              {
+                backgroundColor: isActive
+                  ? palette.primary
+                  : palette.surfaceContainerHigh,
+              },
+              pressed && { opacity: 0.88 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${option.label} ${labelRole}`}
+            accessibilityState={{ selected: isActive }}
+          >
+            <ThemedText
+              variant="labelLg"
+              style={{
+                color: isActive ? palette.onPrimary : palette.onSurface,
+              }}
+            >
+              {option.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const textColor = useThemeColor({}, 'text');
-  const bgColor = useThemeColor({}, 'background');
-  const subtleColor = useThemeColor({}, 'icon');
-  const cardColor = useThemeColor({}, 'card');
-  const borderColor = useThemeColor({}, 'border');
+  const scheme = useColorScheme() ?? 'dark';
+  const palette = Colors[scheme];
+  const bgColor = useThemeColor({}, 'surface');
+  const subtleColor = useThemeColor({}, 'onSurfaceVariant');
+
   const {
     unitSystem,
     themePreference,
@@ -39,13 +99,14 @@ export default function ProfileScreen() {
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(
     unitSystem === 'imperial' ? 'lbs' : 'kg',
   );
-  const displayWeight = weightUnit === 'lbs' ? Math.round(weight * 2.20462) : weight;
+  const displayWeight =
+    weightUnit === 'lbs' ? Math.round(weight * 2.20462) : weight;
   const [weightInput, setWeightInput] = useState(String(displayWeight));
   const [showCalorieInfo, setShowCalorieInfo] = useState(false);
 
-  // Keep input in sync when weight unit or weight changes
   React.useEffect(() => {
-    const val = weightUnit === 'lbs' ? Math.round(weight * 2.20462) : weight;
+    const val =
+      weightUnit === 'lbs' ? Math.round(weight * 2.20462) : weight;
     setWeightInput(String(val));
   }, [weightUnit, weight]);
 
@@ -74,12 +135,11 @@ export default function ProfileScreen() {
     }, [loadStats]),
   );
 
-  const unitOptions: { value: UnitSystem; label: string }[] = [
+  const unitOptions: SegmentOption<UnitSystem>[] = [
     { value: 'metric', label: 'Metric (km)' },
     { value: 'imperial', label: 'Imperial (mi)' },
   ];
-
-  const themeOptions: { value: ThemePreference; label: string }[] = [
+  const themeOptions: SegmentOption<ThemePreference>[] = [
     { value: 'system', label: 'System' },
     { value: 'light', label: 'Light' },
     { value: 'dark', label: 'Dark' },
@@ -88,81 +148,63 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: bgColor }]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + Spacing.lg },
+      ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.title, { color: textColor }]}>Profile</Text>
+      <ThemedText variant="displaySm" color="onSurface" style={styles.title}>
+        Profile
+      </ThemedText>
 
-      {/* All-Time Stats */}
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
-        <Text style={[styles.cardTitle, { color: textColor }]}>
+      <SurfaceCard tier="surfaceContainerLow" radius="xl" padding={Spacing.lg}>
+        <ThemedText
+          variant="titleMd"
+          color="onSurface"
+          style={styles.cardTitle}
+        >
           All-Time Stats
-        </Text>
+        </ThemedText>
         <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: textColor }]}>
-              {stats.totalSessions}
-            </Text>
-            <Text style={[styles.statLabel, { color: subtleColor }]}>
-              Activities
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: textColor }]}>
-              {formatDistance(stats.totalDistance, unitSystem)}
-            </Text>
-            <Text style={[styles.statLabel, { color: subtleColor }]}>
-              Distance
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: textColor }]}>
-              {formatElapsedTime(stats.totalTime)}
-            </Text>
-            <Text style={[styles.statLabel, { color: subtleColor }]}>
-              Time
-            </Text>
-          </View>
+          <StatBlock
+            size="sm"
+            align="left"
+            value={String(stats.totalSessions)}
+            label="Activities"
+          />
+          <StatBlock
+            size="sm"
+            align="center"
+            value={formatDistance(stats.totalDistance, unitSystem)}
+            label="Distance"
+          />
+          <StatBlock
+            size="sm"
+            align="right"
+            value={formatElapsedTime(stats.totalTime)}
+            label="Time"
+          />
         </View>
-      </View>
+      </SurfaceCard>
 
-      {/* Units Setting */}
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
-        <Text style={[styles.cardTitle, { color: textColor }]}>Units</Text>
-        <View style={styles.segmentedControl}>
-          {unitOptions.map((option) => {
-            const isActive = unitSystem === option.value;
-            return (
-              <Pressable
-                key={option.value}
-                style={[
-                  styles.segment,
-                  { borderColor },
-                  isActive && styles.segmentActive,
-                ]}
-                onPress={() => setUnitSystem(option.value)}
-                accessibilityRole="button"
-                accessibilityLabel={`${option.label} units`}
-                accessibilityState={{ selected: isActive }}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    { color: isActive ? '#fff' : textColor },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <SurfaceCard tier="surfaceContainerLow" radius="xl" padding={Spacing.lg}>
+        <ThemedText variant="titleMd" color="onSurface" style={styles.cardTitle}>
+          Units
+        </ThemedText>
+        <SegmentedControl
+          options={unitOptions}
+          value={unitSystem}
+          onChange={setUnitSystem}
+          labelRole="units"
+        />
+      </SurfaceCard>
 
-      {/* Weight Setting */}
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
+      <SurfaceCard tier="surfaceContainerLow" radius="xl" padding={Spacing.lg}>
         <View style={styles.weightTitleRow}>
-          <Text style={[styles.cardTitle, { color: textColor }]}>Weight</Text>
+          <ThemedText variant="titleMd" color="onSurface">
+            Weight
+          </ThemedText>
           <Pressable
             onPress={() => setShowCalorieInfo(true)}
             hitSlop={12}
@@ -170,95 +212,103 @@ export default function ProfileScreen() {
             accessibilityLabel="How are calories calculated?"
           >
             <View style={[styles.infoButton, { borderColor: subtleColor }]}>
-              <Text style={[styles.infoButtonText, { color: subtleColor }]}>i</Text>
+              <ThemedText
+                variant="labelMd"
+                style={{ color: subtleColor, fontStyle: 'italic' }}
+              >
+                i
+              </ThemedText>
             </View>
           </Pressable>
         </View>
         <View style={styles.weightInputRow}>
-          <TextInput
-            style={[styles.weightInput, { color: textColor, borderColor }]}
-            value={weightInput}
-            onChangeText={setWeightInput}
-            onBlur={() => {
-              const parsed = parseFloat(weightInput);
-              if (!isNaN(parsed) && parsed > 0) {
-                const kg = weightUnit === 'lbs' ? parsed / 2.20462 : parsed;
-                setWeight(Math.round(kg * 10) / 10);
-              } else {
-                setWeightInput(String(displayWeight));
-              }
-            }}
-            keyboardType="decimal-pad"
-            returnKeyType="done"
-            placeholder={weightUnit === 'lbs' ? '154' : '70'}
-            placeholderTextColor={subtleColor}
-            accessibilityLabel={`Weight in ${weightUnit === 'lbs' ? 'pounds' : 'kilograms'}`}
-          />
-          <View style={styles.weightUnitToggle}>
+          {/* Underline-only input per Precision design system */}
+          <View
+            style={[
+              styles.weightInputWrap,
+              { borderBottomColor: palette.outline },
+            ]}
+          >
+            <TextInput
+              style={[
+                Typography.metricSm as object,
+                { color: palette.onSurface, flex: 1, paddingVertical: 8 },
+              ]}
+              value={weightInput}
+              onChangeText={setWeightInput}
+              onBlur={() => {
+                const parsed = parseFloat(weightInput);
+                if (!isNaN(parsed) && parsed > 0) {
+                  const kg =
+                    weightUnit === 'lbs' ? parsed / 2.20462 : parsed;
+                  setWeight(Math.round(kg * 10) / 10);
+                } else {
+                  setWeightInput(String(displayWeight));
+                }
+              }}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              placeholder={weightUnit === 'lbs' ? '154' : '70'}
+              placeholderTextColor={subtleColor}
+              accessibilityLabel={`Weight in ${weightUnit === 'lbs' ? 'pounds' : 'kilograms'}`}
+            />
+          </View>
+          <View
+            style={styles.weightUnitToggle}
+            accessibilityRole="radiogroup"
+          >
             {(['kg', 'lbs'] as const).map((u) => {
               const isActive = weightUnit === u;
               return (
                 <Pressable
                   key={u}
+                  onPress={() => setWeightUnit(u)}
                   style={[
                     styles.weightUnitOption,
-                    { borderColor },
-                    isActive && styles.segmentActive,
+                    {
+                      backgroundColor: isActive
+                        ? palette.primary
+                        : palette.surfaceContainerHigh,
+                    },
                   ]}
-                  onPress={() => setWeightUnit(u)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={u === 'kg' ? 'Kilograms' : 'Pounds'}
                 >
-                  <Text
-                    style={[
-                      styles.segmentText,
-                      { color: isActive ? '#fff' : textColor },
-                    ]}
+                  <ThemedText
+                    variant="labelLg"
+                    style={{
+                      color: isActive ? palette.onPrimary : palette.onSurface,
+                    }}
                   >
                     {u}
-                  </Text>
+                  </ThemedText>
                 </Pressable>
               );
             })}
           </View>
         </View>
-        <Text style={[styles.weightHint, { color: subtleColor }]}>
-          Used for calorie estimation in activity sessions
-        </Text>
-      </View>
+        <ThemedText
+          variant="labelSm"
+          color="onSurfaceDim"
+          style={styles.weightHint}
+        >
+          USED FOR CALORIE ESTIMATION IN ACTIVITY SESSIONS
+        </ThemedText>
+      </SurfaceCard>
 
-      {/* Theme Setting */}
-      <View style={[styles.card, { backgroundColor: cardColor }]}>
-        <Text style={[styles.cardTitle, { color: textColor }]}>Theme</Text>
-        <View style={styles.segmentedControl}>
-          {themeOptions.map((option) => {
-            const isActive = themePreference === option.value;
-            return (
-              <Pressable
-                key={option.value}
-                style={[
-                  styles.segment,
-                  { borderColor },
-                  isActive && styles.segmentActive,
-                ]}
-                onPress={() => setThemePreference(option.value)}
-                accessibilityRole="button"
-                accessibilityLabel={`${option.label} theme`}
-                accessibilityState={{ selected: isActive }}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    { color: isActive ? '#fff' : textColor },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <SurfaceCard tier="surfaceContainerLow" radius="xl" padding={Spacing.lg}>
+        <ThemedText variant="titleMd" color="onSurface" style={styles.cardTitle}>
+          Theme
+        </ThemedText>
+        <SegmentedControl
+          options={themeOptions}
+          value={themePreference}
+          onChange={setThemePreference}
+          labelRole="theme"
+        />
+      </SurfaceCard>
 
-      {/* Calorie info modal */}
       <Modal
         visible={showCalorieInfo}
         transparent
@@ -269,34 +319,47 @@ export default function ProfileScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowCalorieInfo(false)}
         >
-          <View
-            style={[
-              styles.modalContent,
-              {
-                backgroundColor: cardColor,
-                shadowColor: '#000',
-              },
-            ]}
+          <SurfaceCard
+            tier="surfaceContainerHigh"
+            radius="xl"
+            padding={Spacing.xl}
+            style={styles.modalContent}
           >
-            <Text style={[styles.modalTitle, { color: textColor }]}>
+            <ThemedText
+              variant="headlineSm"
+              color="onSurface"
+              style={styles.modalTitle}
+            >
               How Calories Are Calculated
-            </Text>
-            <Text style={[styles.modalBody, { color: subtleColor }]}>
-              We estimate calories using the MET (Metabolic Equivalent of Task) method:{'\n\n'}
-              <Text style={{ fontWeight: '700', color: textColor }}>Calories = MET x Weight x Duration</Text>
+            </ThemedText>
+            <ThemedText
+              variant="bodyMd"
+              color="onSurfaceVariant"
+              style={styles.modalBody}
+            >
+              We estimate calories using the MET (Metabolic Equivalent of Task)
+              method:{'\n\n'}
+              <ThemedText
+                variant="bodyMd"
+                color="onSurface"
+                style={styles.modalEmphasis}
+              >
+                Calories = MET × Weight × Duration
+              </ThemedText>
               {'\n\n'}MET values used:{'\n'}
               {'  '}Walking: 3.5{'\n'}
               {'  '}Running: 9.8{'\n'}
               {'  '}Cycling: 7.5{'\n\n'}
-              Your weight is recorded with each session so calorie values stay accurate even if your weight changes over time.
-            </Text>
-            <Pressable
-              style={styles.modalDismiss}
+              Your weight is recorded with each session so calorie values stay
+              accurate even if your weight changes over time.
+            </ThemedText>
+            <PrimaryButton
+              label="Got it"
+              size="md"
               onPress={() => setShowCalorieInfo(false)}
-            >
-              <Text style={styles.modalDismissText}>Got it</Text>
-            </Pressable>
-          </View>
+              style={styles.modalDismiss}
+            />
+          </SurfaceCard>
         </Pressable>
       </Modal>
     </ScrollView>
@@ -308,59 +371,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingLeft: PageInsets.left,
+    paddingRight: PageInsets.right,
+    paddingBottom: Spacing['2xl'],
+    gap: Spacing.lg,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
-    marginBottom: 24,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    letterSpacing: -0.72,
+    marginBottom: Spacing.sm,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: Spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 4,
-    textTransform: 'uppercase',
+    justifyContent: 'space-between',
   },
   segmentedControl: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
   },
   segment: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: Spacing.md,
+    borderRadius: Radii.full,
     alignItems: 'center',
-    borderWidth: 1,
-  },
-  segmentActive: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 
   // Weight
@@ -368,89 +403,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Spacing.md,
   },
   infoButton: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: Radii.full,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontStyle: 'italic',
-  },
   weightInputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    alignItems: 'flex-end',
+    gap: Spacing.md,
   },
-  weightInput: {
+  weightInputWrap: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    height: 48,
+    borderBottomWidth: 1.5,
   },
   weightUnitToggle: {
     flexDirection: 'row',
-    borderRadius: 10,
+    borderRadius: Radii.full,
     overflow: 'hidden',
+    gap: 4,
   },
   weightUnitOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    marginLeft: -1,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radii.full,
     alignItems: 'center',
   },
   weightHint: {
-    fontSize: 12,
-    marginTop: 8,
+    marginTop: Spacing.sm,
+    letterSpacing: 0.8,
   },
 
-  // Calorie info modal
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: Spacing['2xl'],
   },
   modalContent: {
-    borderRadius: 20,
-    padding: 24,
     width: '100%',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   modalBody: {
-    fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 22,
+  },
+  modalEmphasis: {
+    fontWeight: '700',
   },
   modalDismiss: {
-    marginTop: 20,
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalDismissText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    marginTop: Spacing.lg,
   },
 });

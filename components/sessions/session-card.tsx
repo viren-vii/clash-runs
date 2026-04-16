@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, View, Text, Pressable, useColorScheme } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+
 import { RouteMapStatic } from '@/components/tracking/route-map-static';
 import {
   calculatePace,
@@ -9,9 +10,13 @@ import {
   formatPace,
   getPaceUnit,
 } from '@/lib/tracking/distance-calculator';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { ThemedText } from '@/components/themed-text';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { StatBlock } from '@/components/ui/stat-block';
+import { ActivityChip } from '@/components/ui/activity-chip';
+import { Radii, Spacing } from '@/constants/theme';
 import { useSettings } from '@/lib/settings/settings-context';
-import { ACTIVITY_EMOJI, ACTIVITY_LABELS } from '@/constants/activity';
+import { ACTIVITY_LABELS } from '@/constants/activity';
 import type { Session, RoutePoint } from '@/lib/types';
 
 interface SessionCardProps {
@@ -21,11 +26,6 @@ interface SessionCardProps {
 
 export function SessionCard({ session, routePoints }: SessionCardProps) {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const textColor = useThemeColor({}, 'text');
-  const subtleColor = useThemeColor({}, 'icon');
-  const cardColor = useThemeColor({}, 'card');
-  const borderColor = useThemeColor({}, 'border');
   const { unitSystem } = useSettings();
   const paceUnit = getPaceUnit(unitSystem);
 
@@ -37,108 +37,82 @@ export function SessionCard({ session, routePoints }: SessionCardProps) {
   });
 
   const pace = calculatePace(session.totalDistance, session.elapsedTime);
+  const activityLabel = ACTIVITY_LABELS[session.activityType] ?? 'Workout';
+  const distanceStr = formatDistance(session.totalDistance, unitSystem);
+  const timeStr = formatElapsedTime(session.elapsedTime);
+
+  // Narrow activity type for chip coloring
+  const chipType =
+    session.activityType === 'run'
+      ? 'run'
+      : session.activityType === 'cycle'
+      ? 'cycle'
+      : session.activityType === 'walk'
+      ? 'walk'
+      : 'unknown';
 
   return (
     <Pressable
-      style={[
-        styles.card,
-        {
-          backgroundColor: cardColor,
-          shadowColor: colorScheme === 'dark' ? '#000' : '#888',
-        },
-      ]}
       onPress={() => router.push(`/session/${session.id}`)}
       accessibilityRole="button"
-      accessibilityLabel={`${ACTIVITY_LABELS[session.activityType] ?? 'Workout'} on ${dateStr}. ${formatDistance(session.totalDistance, unitSystem)}, ${formatElapsedTime(session.elapsedTime)}`}
+      accessibilityLabel={`${activityLabel} on ${dateStr}. ${distanceStr}, ${timeStr}`}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.activityType, { color: textColor }]}>
-          {ACTIVITY_EMOJI[session.activityType] ?? '🏋️'}{' '}
-          {ACTIVITY_LABELS[session.activityType] ?? 'Workout'}
-        </Text>
-        <Text style={[styles.date, { color: subtleColor }]}>{dateStr}</Text>
-      </View>
+      <SurfaceCard tier="surfaceContainerLow" radius="xl" padding={Spacing.lg}>
+        <View style={styles.header}>
+          <ActivityChip
+            type={chipType}
+            label={activityLabel}
+            size="sm"
+          />
+          <ThemedText variant="labelMd" color="onSurfaceVariant">
+            {dateStr}
+          </ThemedText>
+        </View>
 
-      {/* Map */}
-      <View style={styles.mapWrapper}>
-        <RouteMapStatic routePoints={routePoints} height={140} />
-      </View>
+        <View style={styles.mapWrapper}>
+          <RouteMapStatic routePoints={routePoints} height={140} />
+        </View>
 
-      {/* Stats */}
-      <View style={[styles.statsRow, { borderTopColor: borderColor }]}>
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: textColor }]}>
-            {formatDistance(session.totalDistance, unitSystem)}
-          </Text>
-          <Text style={[styles.statLabel, { color: subtleColor }]}>
-            Distance
-          </Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: textColor }]}>
-            {formatElapsedTime(session.elapsedTime)}
-          </Text>
-          <Text style={[styles.statLabel, { color: subtleColor }]}>Time</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: textColor }]}>
-            {formatPace(pace, unitSystem)} {paceUnit}
-          </Text>
-          <Text style={[styles.statLabel, { color: subtleColor }]}>Pace</Text>
-        </View>
-      </View>
+        {/* Nested higher-tier surface for the stat strip — tonal layering */}
+        <SurfaceCard
+          tier="surfaceContainer"
+          radius="md"
+          padding={Spacing.md}
+          style={styles.statStrip}
+        >
+          <StatBlock
+            size="sm"
+            align="left"
+            value={distanceStr}
+            label="Distance"
+          />
+          <StatBlock size="sm" align="center" value={timeStr} label="Time" />
+          <StatBlock
+            size="sm"
+            align="right"
+            value={`${formatPace(pace, unitSystem)} ${paceUnit}`}
+            label="Pace"
+          />
+        </SurfaceCard>
+      </SurfaceCard>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  activityType: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  date: {
-    fontSize: 13,
+    marginBottom: Spacing.md,
   },
   mapWrapper: {
-    borderRadius: 14,
+    borderRadius: Radii.lg,
     overflow: 'hidden',
-    marginHorizontal: -4,
+    marginBottom: Spacing.sm,
   },
-  statsRow: {
+  statStrip: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 16,
-    marginTop: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  stat: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  statLabel: {
-    fontSize: 11,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    justifyContent: 'space-between',
   },
 });

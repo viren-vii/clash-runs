@@ -54,10 +54,12 @@ describe('StatsDisplay', () => {
   });
 
   describe('compact mode', () => {
-    it('renders values separated by pipes', async () => {
+    it('renders compact values without pipe separators', async () => {
+      // Pipes replaced by thin View dividers; check values are still rendered
       renderStats({ compact: true, elapsedTime: 60000, totalDistance: 1000 });
       await waitFor(() => {
-        expect(screen.getAllByText(' | ')).toHaveLength(2);
+        expect(screen.getByText('1.00 km')).toBeTruthy();
+        expect(screen.getByText('1:00')).toBeTruthy();
       });
     });
 
