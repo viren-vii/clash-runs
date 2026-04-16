@@ -194,19 +194,3 @@ jest.mock('lucide-react-native', () => {
     },
   );
 });
-
-// Supabase client
-jest.mock('@/lib/supabase/client', () => ({
-  supabase: {
-    auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
-      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
-      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
-    },
-    from: jest.fn(() => ({
-      upsert: jest.fn().mockResolvedValue({ error: null }),
-      insert: jest.fn().mockResolvedValue({ error: null }),
-      select: jest.fn().mockResolvedValue({ data: [], error: null }),
-    })),
-  },
-}));
