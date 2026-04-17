@@ -14,6 +14,7 @@ import {
   calculateSpeed,
   isStationary,
 } from './distance-calculator';
+import { syncSession } from '../api/sync';
 import type {
   Session,
   SessionActivityType,
@@ -151,6 +152,12 @@ class SessionManager {
       elapsedTime: finalElapsed,
     });
     await completeSessionDb(sessionId);
+
+    // Auto-sync to server in the background. Failures are non-fatal —
+    // the session lives in SQLite and can be retried later.
+    syncSession(sessionId).catch((err) => {
+      console.warn('[sync] failed for session', sessionId, err);
+    });
 
     // Fetch final data
     const session = await getSession(sessionId);
