@@ -101,7 +101,8 @@
             "message": "Clash Runs needs access to Health Connect to recover tracking data and display your fitness statistics."
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

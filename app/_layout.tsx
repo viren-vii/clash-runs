@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -22,8 +22,8 @@ import '@/lib/tracking/task-definitions';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { TrackingProvider } from '@/lib/tracking/tracking-context';
 import { SettingsProvider } from '@/lib/settings/settings-context';
+import { AuthProvider, useAuth } from '@/lib/auth/auth-context';
 import { getDatabase } from '@/lib/database/database';
-import { Colors } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* splash may already be hidden in Fast Refresh */
@@ -33,9 +33,10 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-
 function InnerLayout() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated, isLoading } = useAuth();
+
   const [fontsLoaded] = useSpaceGrotesk({
     SpaceGrotesk_500Medium,
     SpaceGrotesk_700Bold,
@@ -45,20 +46,19 @@ function InnerLayout() {
     Inter_700Bold,
   });
 
-  // Initialize database on app mount
   useEffect(() => {
     getDatabase().catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded && !isLoading) {
       SplashScreen.hideAsync().catch(() => {
         /* no-op */
       });
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, isLoading]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || isLoading) {
     return null;
   }
 
@@ -71,10 +71,7 @@ function InnerLayout() {
             name="tracking"
             options={{ headerShown: false, gestureEnabled: false }}
           />
-          <Stack.Screen
-            name="session/[id]"
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="session/[id]" options={{ headerShown: false }} />
           <Stack.Screen
             name="recovery"
             options={{ presentation: 'modal', title: 'Recover Session' }}
@@ -83,7 +80,16 @@ function InnerLayout() {
             name="onboarding/permissions"
             options={{ headerShown: false, gestureEnabled: false }}
           />
+          <Stack.Screen name="auth/signin" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="auth/verify-email"
+            options={{ headerShown: false }}
+          />
         </Stack>
+
+        {!isAuthenticated && <Redirect href="/auth/signin" />}
+
         <StatusBar style="auto" />
       </TrackingProvider>
     </ThemeProvider>
@@ -93,7 +99,9 @@ function InnerLayout() {
 export default function RootLayout() {
   return (
     <SettingsProvider>
-      <InnerLayout />
+      <AuthProvider>
+        <InnerLayout />
+      </AuthProvider>
     </SettingsProvider>
   );
 }

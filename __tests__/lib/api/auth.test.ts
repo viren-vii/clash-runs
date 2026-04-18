@@ -1,82 +1,87 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getToken, clearAuth } from '../../../lib/api/auth';
-import { STORAGE_KEYS } from '../../../lib/api/config';
+import * as TokenManager from '../../../lib/auth/token-manager';
+import * as AuthService from '../../../lib/auth/auth-service';
+import * as SessionEvents from '../../../lib/auth/session-events';
 
-jest.mock('@viren-vii/api', () => ({
-  createClient: jest.fn(() => ({
-    auth: {
-      registerDevice: jest.fn().mockResolvedValue({
-        token: 'fresh-token',
-        userId: 'user-1',
-        deviceId: 'test-uuid-1234',
-        // Server returns ms (exp * 1000); 7 days in the future.
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      }),
-    },
-  })),
+jest.mock('../../../lib/auth/token-manager');
+jest.mock('../../../lib/auth/auth-service', () => ({
+  ...jest.requireActual('../../../lib/auth/auth-service'),
+  refreshTokens: jest.fn(),
 }));
 
-describe('api/auth.getToken', () => {
-  beforeEach(async () => {
+const mockTokens = TokenManager as jest.Mocked<typeof TokenManager>;
+const mockAuthService = AuthService as jest.Mocked<typeof AuthService>;
+
+describe('lib/api/auth (credential-based)', () => {
+  beforeEach(() => {
     jest.clearAllMocks();
-    await AsyncStorage.clear();
+    mockTokens.clearTokens.mockResolvedValue();
+    mockTokens.saveTokens.mockResolvedValue();
   });
 
-  it('returns a cached token when expiresAt (ms) is still in the future', async () => {
-    const futureMs = Date.now() + 10 * 60 * 1000;
-    await AsyncStorage.setItem(STORAGE_KEYS.token, 'cached-token');
-    await AsyncStorage.setItem(STORAGE_KEYS.tokenExpiresAt, String(futureMs));
+  describe('getToken', () => {
+    it('returns cached access token when valid', async () => {
+      mockTokens.getAccessToken.mockResolvedValue('valid-access-token');
 
-    const token = await getToken();
-    expect(token).toBe('cached-token');
+      const token = await getToken();
+
+      expect(token).toBe('valid-access-token');
+      expect(mockAuthService.refreshTokens).not.toHaveBeenCalled();
+    });
+
+    it('uses refresh token to get new access token when expired', async () => {
+      mockTokens.getAccessToken.mockResolvedValue(null);
+      mockTokens.getRefreshToken.mockResolvedValue('stored-refresh');
+      mockAuthService.refreshTokens.mockResolvedValue({
+        accessToken: 'new-access',
+        refreshToken: 'new-refresh',
+      });
+
+      const token = await getToken();
+
+      expect(token).toBe('new-access');
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('stored-refresh');
+      expect(mockTokens.saveTokens).toHaveBeenCalledWith('new-access', 'new-refresh');
+    });
+
+    it('throws when no refresh token available', async () => {
+      mockTokens.getAccessToken.mockResolvedValue(null);
+      mockTokens.getRefreshToken.mockResolvedValue(null);
+
+      await expect(getToken()).rejects.toThrow('No refresh token');
+    });
+
+    it('de-duplicates concurrent refresh calls (single inflight request)', async () => {
+      mockTokens.getAccessToken.mockResolvedValue(null);
+      mockTokens.getRefreshToken.mockResolvedValue('stored-refresh');
+
+      let resolveRefresh!: (v: { accessToken: string; refreshToken: string }) => void;
+      const refreshPromise = new Promise<{ accessToken: string; refreshToken: string }>(
+        (res) => { resolveRefresh = res; },
+      );
+      mockAuthService.refreshTokens.mockReturnValueOnce(refreshPromise);
+
+      const [p1, p2] = [getToken(), getToken()];
+      resolveRefresh({ accessToken: 'shared-access', refreshToken: 'shared-refresh' });
+
+      const [t1, t2] = await Promise.all([p1, p2]);
+      expect(t1).toBe('shared-access');
+      expect(t2).toBe('shared-access');
+      expect(mockAuthService.refreshTokens).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('refreshes when cached token is past the 60s skew window', async () => {
-    // Expired 5 seconds ago.
-    const pastMs = Date.now() - 5_000;
-    await AsyncStorage.setItem(STORAGE_KEYS.token, 'stale-token');
-    await AsyncStorage.setItem(STORAGE_KEYS.tokenExpiresAt, String(pastMs));
+  describe('clearAuth', () => {
+    it('delegates to TokenManager.clearTokens', async () => {
+      await clearAuth();
+      expect(mockTokens.clearTokens).toHaveBeenCalled();
+    });
 
-    const token = await getToken();
-    expect(token).toBe('fresh-token');
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.token)).toBe('fresh-token');
-  });
-
-  it('does NOT treat ms expiresAt as seconds (regression: ms/s mismatch)', async () => {
-    // If the client erroneously multiplied expiresAt by 1000, a token that
-    // actually expired 5 minutes ago would look like it expires ~1970+far-future
-    // and be wrongly reused. Ensure it's refreshed.
-    const expiredMs = Date.now() - 5 * 60 * 1000;
-    await AsyncStorage.setItem(STORAGE_KEYS.token, 'stale-token');
-    await AsyncStorage.setItem(STORAGE_KEYS.tokenExpiresAt, String(expiredMs));
-
-    const token = await getToken();
-    expect(token).toBe('fresh-token');
-  });
-
-  it('fetches a fresh token and persists deviceId + userId on first call', async () => {
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.deviceId)).toBeNull();
-
-    const token = await getToken();
-
-    expect(token).toBe('fresh-token');
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.deviceId)).toBe(
-      'test-uuid-1234',
-    );
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.userId)).toBe('user-1');
-  });
-
-  it('clearAuth removes token + userId but keeps deviceId', async () => {
-    await getToken();
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.token)).toBeTruthy();
-
-    await clearAuth();
-
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.token)).toBeNull();
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.userId)).toBeNull();
-    // DeviceId is intentionally kept so the same user is re-auth'd.
-    expect(await AsyncStorage.getItem(STORAGE_KEYS.deviceId)).toBe(
-      'test-uuid-1234',
-    );
+    it('emits session invalidated after clearing tokens', async () => {
+      const spy = jest.spyOn(SessionEvents, 'emitSessionInvalidated');
+      await clearAuth();
+      expect(spy).toHaveBeenCalledTimes(1);
+      spy.mockRestore();
+    });
   });
 });

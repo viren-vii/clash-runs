@@ -177,6 +177,37 @@ jest.mock('expo-blur', () => {
   };
 });
 
+// expo-secure-store
+jest.mock('expo-secure-store', () => {
+  const store: Record<string, string> = {};
+  return {
+    setItemAsync: jest.fn((key: string, value: string) => {
+      store[key] = value;
+      return Promise.resolve();
+    }),
+    getItemAsync: jest.fn((key: string) => Promise.resolve(store[key] ?? null)),
+    deleteItemAsync: jest.fn((key: string) => {
+      delete store[key];
+      return Promise.resolve();
+    }),
+    __store: store,
+    __clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
+  };
+});
+
+// expo-local-authentication
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn().mockResolvedValue(true),
+  isEnrolledAsync: jest.fn().mockResolvedValue(true),
+  supportedAuthenticationTypesAsync: jest.fn().mockResolvedValue([2]),
+  authenticateAsync: jest.fn().mockResolvedValue({ success: true }),
+  AuthenticationType: {
+    FINGERPRINT: 1,
+    FACIAL_RECOGNITION: 2,
+    IRIS: 3,
+  },
+}));
+
 // lucide-react-native — render icons as simple placeholders in tests.
 // Using a Proxy lets any `lucide.Footprints`/`lucide.Zap` import resolve.
 jest.mock('lucide-react-native', () => {
