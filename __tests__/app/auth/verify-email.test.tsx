@@ -137,6 +137,18 @@ describe('VerifyEmailScreen', () => {
     });
   });
 
+  it('disables resend button while resending is in flight, re-enables on failure', async () => {
+    let reject!: (err: Error) => void;
+    mockResendVerification.mockReturnValueOnce(new Promise<void>((_, r) => { reject = r; }));
+    renderScreen();
+
+    act(() => { fireEvent.press(screen.getByTestId('resend-button')); });
+    expect(screen.getByTestId('resend-button').props.accessibilityState?.disabled).toBe(true);
+
+    await act(async () => { reject(new Error('Network error')); });
+    expect(screen.getByTestId('resend-button').props.accessibilityState?.disabled).toBeFalsy();
+  });
+
   it('calls resendVerification API and shows "Code sent!" on success', async () => {
     mockResendVerification.mockResolvedValue(undefined);
     renderScreen();

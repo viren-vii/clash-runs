@@ -81,7 +81,7 @@ describe('token-manager', () => {
 
   describe('saveUser / getUser', () => {
     it('stores and retrieves user as JSON', async () => {
-      const user = { id: 'u1', email: 'a@b.com', emailVerified: true };
+      const user = { id: 'u1', email: 'a@b.com' };
       await saveUser(user);
       expect(await getUser()).toEqual(user);
     });
@@ -95,7 +95,7 @@ describe('token-manager', () => {
     it('removes all three SecureStore entries', async () => {
       const jwt = makeJwt(Math.floor(Date.now() / 1000) + 900);
       await saveTokens(jwt, 'refresh-xyz');
-      await saveUser({ id: 'u1', email: 'a@b.com', emailVerified: true });
+      await saveUser({ id: 'u1', email: 'a@b.com' });
 
       await clearTokens();
 

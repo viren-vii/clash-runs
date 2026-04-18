@@ -86,7 +86,7 @@ describe('auth-service', () => {
       const resp = {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        user: { id: 'u1', email: 'test@example.com', emailVerified: true },
+        user: { id: 'u1', email: 'test@example.com' },
       };
       mockSuccess(resp);
       const result = await signin('test@example.com', 'password123');

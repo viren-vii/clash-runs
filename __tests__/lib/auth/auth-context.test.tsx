@@ -26,7 +26,7 @@ const secureStoreMock = SecureStore as jest.Mocked<typeof SecureStore> & {
   __clear: () => void;
 };
 
-const testUser = { id: 'u1', email: 'test@example.com', emailVerified: true };
+const testUser = { id: 'u1', email: 'test@example.com' };
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;

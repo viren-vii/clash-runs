@@ -3,7 +3,6 @@ import { API_BASE_URL } from '../api/config';
 export interface AuthUser {
   id: string;
   email: string;
-  emailVerified: boolean;
 }
 
 export interface SigninResponse {

@@ -17,7 +17,7 @@ async function withAuthRetry<T>(op: () => Promise<T>): Promise<T> {
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       await clearAuth();
-      return await op();
+      throw err;
     }
     throw err;
   }

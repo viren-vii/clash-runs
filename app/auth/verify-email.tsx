@@ -26,6 +26,7 @@ export default function VerifyEmailScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resent, setResent] = useState(false);
+  const [resending, setResending] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const resendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,6 +61,7 @@ export default function VerifyEmailScreen() {
 
   async function handleResend() {
     setError('');
+    setResending(true);
     try {
       await resendVerification(email ?? '');
       setResent(true);
@@ -69,6 +71,8 @@ export default function VerifyEmailScreen() {
       setError(
         e instanceof AuthError ? e.message : 'Could not resend code. Please try again.',
       );
+    } finally {
+      setResending(false);
     }
   }
 
@@ -122,7 +126,7 @@ export default function VerifyEmailScreen() {
 
         <Pressable
           onPress={handleResend}
-          disabled={resent}
+          disabled={resending || resent}
           testID="resend-button"
         >
           <Text style={[styles.linkText, { color: resent ? theme.onSurfaceDim : theme.primary }]}>

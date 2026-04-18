@@ -5,6 +5,10 @@ import * as routeRepo from '../../../lib/database/route-repository';
 import * as segmentsRepo from '../../../lib/database/segments-repository';
 import * as clientModule from '../../../lib/api/client';
 import * as authModule from '../../../lib/api/auth';
+import * as SessionEvents from '../../../lib/auth/session-events';
+import * as TokenManager from '../../../lib/auth/token-manager';
+
+jest.mock('../../../lib/auth/token-manager');
 import type {
   Session,
   RoutePoint,
@@ -57,8 +61,13 @@ describe('syncSession', () => {
   const routePointsPost = jest.fn().mockResolvedValue({ inserted: 0, skipped: 0 });
   const segmentsPost = jest.fn().mockResolvedValue({ upserted: 0 });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    (TokenManager as jest.Mocked<typeof TokenManager>).clearTokens.mockResolvedValue();
     jest.spyOn(clientModule, 'getApiClient').mockReturnValue({
       auth: { registerDevice: jest.fn() },
       me: { get: jest.fn() },
@@ -106,7 +115,7 @@ describe('syncSession', () => {
     });
   });
 
-  it('on 401 clears auth and retries the failing call once', async () => {
+  it('on 401 calls clearAuth and re-throws without retrying', async () => {
     jest.spyOn(sessionsRepo, 'getSession').mockResolvedValue(makeSession());
     jest.spyOn(routeRepo, 'getRoutePoints').mockResolvedValue([]);
     jest.spyOn(segmentsRepo, 'getSegments').mockResolvedValue([]);
@@ -114,16 +123,14 @@ describe('syncSession', () => {
       .spyOn(authModule, 'clearAuth')
       .mockResolvedValue(undefined);
 
-    sessionsSync
-      .mockRejectedValueOnce(new ApiError(401, 'unauthorized'))
-      .mockResolvedValueOnce({ upserted: ['sess-xyz'], rejected: [] });
+    sessionsSync.mockRejectedValueOnce(new ApiError(401, 'unauthorized'));
 
-    await expect(syncSession('sess-xyz')).resolves.toBeDefined();
-    expect(sessionsSync).toHaveBeenCalledTimes(2);
+    await expect(syncSession('sess-xyz')).rejects.toThrow(/401/);
+    expect(sessionsSync).toHaveBeenCalledTimes(1);
     expect(clearAuth).toHaveBeenCalledTimes(1);
   });
 
-  it('propagates non-401 errors without retry', async () => {
+  it('propagates non-401 errors without calling clearAuth', async () => {
     jest.spyOn(sessionsRepo, 'getSession').mockResolvedValue(makeSession());
     jest.spyOn(routeRepo, 'getRoutePoints').mockResolvedValue([]);
     jest.spyOn(segmentsRepo, 'getSegments').mockResolvedValue([]);
@@ -138,18 +145,16 @@ describe('syncSession', () => {
     expect(clearAuth).not.toHaveBeenCalled();
   });
 
-  it('does not retry twice on a second 401 (fails fast)', async () => {
+  it('emits session invalidation on 401', async () => {
     jest.spyOn(sessionsRepo, 'getSession').mockResolvedValue(makeSession());
     jest.spyOn(routeRepo, 'getRoutePoints').mockResolvedValue([]);
     jest.spyOn(segmentsRepo, 'getSegments').mockResolvedValue([]);
-    jest.spyOn(authModule, 'clearAuth').mockResolvedValue(undefined);
+    const emitSpy = jest.spyOn(SessionEvents, 'emitSessionInvalidated');
 
-    sessionsSync
-      .mockRejectedValueOnce(new ApiError(401, 'unauthorized'))
-      .mockRejectedValueOnce(new ApiError(401, 'still-unauthorized'));
+    sessionsSync.mockRejectedValueOnce(new ApiError(401, 'unauthorized'));
 
-    await expect(syncSession('sess-xyz')).rejects.toThrow(/401/);
-    expect(sessionsSync).toHaveBeenCalledTimes(2);
+    await expect(syncSession('sess-xyz')).rejects.toThrow();
+    expect(emitSpy).toHaveBeenCalledTimes(1);
   });
 
   it('skips point/segment calls when there are none', async () => {
